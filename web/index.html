@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Aura Pre-Flight Check</h1>
+        <div id="checks">
+            <div class="check-item" id="check-system-audio">
+                <span class="indicator">⚪</span> System Audio
+            </div>
+            <div class="check-item" id="check-mic-permission">
+                <span class="indicator">⚪</span> Microphone Permission
+            </div>
+            <div class="check-item" id="check-mic-selection">
+                <span class="indicator">⚪</span> Microphone Selection
+                <select id="mic-select" disabled></select>
+            </div>
+            <div class="check-item" id="check-backend">
+                <span class="indicator">⚪</span> Backend Connection
+            </div>
+            <div class="check-item" id="check-deepgram">
+                <span class="indicator">⚪</span> Deepgram API
+            </div>
+            <div class="check-item" id="check-groq">
+                <span class="indicator">⚪</span> Groq API
+            </div>
+        </div>
+        <button id="start-button" disabled>Start Interview</button>
+    </div>
+
+    <script type="module" src="/static/js/main.js"></script>
+</body>
+</html>

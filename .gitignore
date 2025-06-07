@@ -1,0 +1,15 @@
+# --- Environment ---
+.env
+.venv/
+
+# --- Python ---
+__pycache__/
+*.pyc
+
+# --- VSCode ---
+.vscode/
+
+# --- Build artifacts ---
+dist/
+build/
+*.spec
