@@ -2,6 +2,34 @@
 
 This document outlines the strategic plan for developing "Aura," a real-time AI interview coach.
 
+### **User Flow & Application Stages**
+
+The application will proceed through three distinct stages:
+
+1.  **Stage 1: Onboarding:** The first screen the user sees. Its purpose is to gather essential context for the AI.
+    *   **UI Components:**
+        *   **Profile Input:** Text fields for Name, Company, Target Role.
+        *   **Resume Input:** A large `textarea` for the user's resume text.
+        *   **Interview Focus:** Checkboxes (e.g., Behavioral, System Design).
+        *   **Objectives:** A `textarea` for the user's personal goals.
+    *   **Action:** A "Proceed to Device Setup" button.
+
+2.  **Stage 2: Pre-Flight Check:** The second screen. Its purpose is to verify all technical requirements.
+    *   **UI Components:** A dashboard with status indicators (🟢/🔴) for:
+        *   System Audio & Microphone Permissions
+        *   Device Selection
+        *   Backend Connection
+        *   Deepgram & Groq API Key validation.
+    *   **Action:** An enabled "Start Interview" button once all checks pass.
+
+3.  **Stage 3: Live Interview:** The main application interface.
+    *   **UI Components:**
+        *   A pane to display the live, diarized transcript.
+        *   A pane to display the real-time AI-generated answers.
+        *   A pane for code snippets.
+        *   A "Hold to Speak" button for the candidate.
+    *   **Action:** The core audio-to-answer loop runs continuously.
+
 ### **High-Level Architecture**
 
 This diagram visualizes the modular architecture.

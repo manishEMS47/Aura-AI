@@ -1,74 +1,257 @@
+:root {
+    --bg-color: #1a1b26;
+    --surface-color: #24283b;
+    --highlight-color: #7aa2f7;
+    --text-color: #c0caf5;
+    --subtle-text-color: #a9b1d6;
+    --green: #9ece6a;
+    --red: #f7768e;
+    --border-radius: 10px;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #282c34;
-    color: #f1f1f1;
-    padding: 2em;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+.view {
+    position: absolute;
+    width: 100%;
+    min-height: 100vh;
+    padding: 1rem;
+    box-sizing: border-box;
     display: flex;
     justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
+    align-items: flex-start;
+    opacity: 0;
+    transform: scale(0.98);
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+    pointer-events: none;
+    overflow-y: auto;
+}
+
+.view.active {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
 }
 
 .container {
-    background: #3c4049;
-    padding: 2em;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    background: var(--surface-color);
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     width: 100%;
-    max-width: 500px;
+    max-width: 900px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin: 1rem auto;
+    box-sizing: border-box;
 }
 
 h1 {
     text-align: center;
-    margin-bottom: 1.5em;
-    color: #61afef;
+    margin-top: 0;
+    margin-bottom: 0.5em;
+    color: var(--highlight-color);
+    font-weight: 600;
+    font-size: 1.8rem;
 }
 
+.subtitle {
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 1.5em;
+    color: var(--subtle-text-color);
+    font-size: 0.95rem;
+}
+
+/* --- Onboarding Form --- */
+fieldset {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--border-radius);
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+legend {
+    color: var(--highlight-color);
+    font-weight: 500;
+    padding: 0 0.5em;
+    font-size: 0.9rem;
+}
+
+input[type="text"],
+textarea {
+    width: 100%;
+    background: rgba(0,0,0,0.2);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 0.7rem;
+    color: var(--text-color);
+    margin-bottom: 0.8rem;
+    box-sizing: border-box;
+    transition: border-color 0.2s;
+    font-size: 0.9rem;
+}
+
+input[type="text"]:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--highlight-color);
+}
+
+textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    cursor: pointer;
+    font-size: 0.9rem;
+    flex: 1;
+    min-width: 200px;
+}
+
+/* --- Pre-Flight Check --- */
 .check-item {
     display: flex;
     align-items: center;
-    padding: 0.8em;
-    margin-bottom: 0.5em;
-    background: #4b515d;
-    border-radius: 5px;
-    font-size: 1.1em;
+    padding: 0.8rem 1rem;
+    margin-bottom: 0.5rem;
+    background: rgba(0,0,0,0.2);
+    border-radius: 6px;
+    font-size: 0.95rem;
 }
 
 .indicator {
-    margin-right: 1em;
-    font-size: 1.5em;
+    margin-right: 1rem;
+    font-size: 1.1rem;
     line-height: 1;
+    min-width: 1.5rem;
 }
 
 #mic-select {
     margin-left: auto;
-    background: #3c4049;
-    color: #f1f1f1;
-    border: 1px solid #61afef;
+    background: var(--surface-color);
+    color: var(--text-color);
+    border: 1px solid var(--highlight-color);
     border-radius: 4px;
-    padding: 0.3em 0.5em;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.85rem;
 }
 
-#start-button {
+/* --- Buttons --- */
+button {
     display: block;
     width: 100%;
-    padding: 1em;
-    font-size: 1.2em;
-    background-color: #98c379;
-    color: #282c34;
+    padding: 0.9rem;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #fff;
     border: none;
-    border-radius: 5px;
-    margin-top: 2em;
+    border-radius: 6px;
+    margin-top: 1.5rem;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, transform 0.1s;
+    box-sizing: border-box;
 }
 
-#start-button:disabled {
+button:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+#proceed-to-checks {
+    background-color: var(--highlight-color);
+}
+
+#start-interview-button {
+    background-color: var(--green);
+}
+
+button:disabled {
     background-color: #5c6370;
     cursor: not-allowed;
+    opacity: 0.6;
 }
 
-#start-button:not(:disabled):hover {
-    background-color: #a9d48a;
+/* --- Responsive Design --- */
+@media (max-width: 768px) {
+    .container {
+        margin: 0.5rem;
+        padding: 1rem;
+        max-width: none;
+    }
+    
+    .view {
+        padding: 0.5rem;
+    }
+    
+    h1 {
+        font-size: 1.5rem;
+    }
+    
+    .checkbox-group {
+        flex-direction: column;
+        gap: 0.8rem;
+    }
+    
+    .checkbox-group label {
+        min-width: auto;
+    }
+    
+    fieldset {
+        padding: 0.8rem;
+        margin-bottom: 0.8rem;
+    }
+    
+    input[type="text"],
+    textarea {
+        padding: 0.6rem;
+        font-size: 0.85rem;
+    }
+    
+    button {
+        padding: 0.8rem;
+        font-size: 0.95rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        margin: 0.25rem;
+        padding: 0.8rem;
+    }
+    
+    h1 {
+        font-size: 1.3rem;
+    }
+    
+    .subtitle {
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+    
+    fieldset {
+        padding: 0.6rem;
+    }
+    
+    .check-item {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.9rem;
+    }
 }

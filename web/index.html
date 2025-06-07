@@ -7,32 +7,65 @@
     <link rel="stylesheet" href="/static/css/main.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Aura Pre-Flight Check</h1>
-        <div id="checks">
-            <div class="check-item" id="check-system-audio">
-                <span class="indicator">⚪</span> System Audio
-            </div>
-            <div class="check-item" id="check-mic-permission">
-                <span class="indicator">⚪</span> Microphone Permission
-            </div>
-            <div class="check-item" id="check-mic-selection">
-                <span class="indicator">⚪</span> Microphone Selection
-                <select id="mic-select" disabled></select>
-            </div>
-            <div class="check-item" id="check-backend">
-                <span class="indicator">⚪</span> Backend Connection
-            </div>
-            <div class="check-item" id="check-deepgram">
-                <span class="indicator">⚪</span> Deepgram API
-            </div>
-            <div class="check-item" id="check-groq">
-                <span class="indicator">⚪</span> Groq API
-            </div>
+
+    <!-- Stage 1: Onboarding -->
+    <div id="onboarding-view" class="view active">
+        <div class="container">
+            <h1>Aura Onboarding</h1>
+            <p class="subtitle">First, let's gather some context for the AI.</p>
+            
+            <fieldset>
+                <legend>Your Profile</legend>
+                <input type="text" id="user-name" placeholder="Your Name">
+                <input type="text" id="user-company" placeholder="Company You're Interviewing With">
+                <input type="text" id="user-role" placeholder="Target Role">
+                <textarea id="user-resume" placeholder="Paste your resume text here..."></textarea>
+            </fieldset>
+
+            <fieldset>
+                <legend>Interview Focus</legend>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" name="focus" value="behavioral"> Behavioral</label>
+                    <label><input type="checkbox" name="focus" value="system-design"> System Design</label>
+                    <label><input type="checkbox" name="focus" value="dsa"> Data Structures & Algorithms</label>
+                    <label><input type="checkbox" name="focus" value="coding"> Coding</label>
+                    <label><input type="checkbox" name="focus" value="cultural-fit"> Cultural Fit</label>
+                    <label><input type="checkbox" name="focus" value="hr"> HR / Screening</label>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Job Description / Requirements</legend>
+                <textarea id="user-objectives" placeholder="Paste the job description or key requirements here to give the AI context."></textarea>
+            </fieldset>
+
+            <button id="proceed-to-checks">Proceed to Device Setup</button>
         </div>
-        <button id="start-button" disabled>Start Interview</button>
+    </div>
+
+    <!-- Stage 2: Pre-Flight Check -->
+    <div id="preflight-view" class="view">
+        <div class="container">
+            <h1>Aura Pre-Flight Check</h1>
+            <div id="checks">
+                <div class="check-item" id="check-system-audio"><span class="indicator">⚪</span> System Audio</div>
+                <div class="check-item" id="check-mic-permission"><span class="indicator">⚪</span> Microphone Permission</div>
+                <div class="check-item" id="check-mic-selection"><span class="indicator">⚪</span> Microphone Selection <select id="mic-select" disabled></select></div>
+                <div class="check-item" id="check-backend"><span class="indicator">⚪</span> Backend Connection</div>
+                <div class="check-item" id="check-deepgram"><span class="indicator">⚪</span> Deepgram API</div>
+                <div class="check-item" id="check-groq"><span class="indicator">⚪</span> Groq API</div>
+            </div>
+            <button id="start-interview-button" disabled>Start Interview</button>
+        </div>
+    </div>
+
+    <!-- Stage 3: Live Interview -->
+    <div id="live-view" class="view">
+        <!-- We will build this out later -->
+        <h1>Live Interview</h1>
     </div>
 
     <script type="module" src="/static/js/main.js"></script>
+
 </body>
 </html>

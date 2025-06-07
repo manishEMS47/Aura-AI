@@ -1,6 +1,33 @@
-import { getSystemAudio, setupMicrophone } from './media.js';
+import { getSystemAudio, setupMicrophone, getMicrophoneStream } from './media.js';
+import { autofillForTesting } from './dev.js';
+
+// --- Config ---
+const DEV_MODE = true; // Enables developer shortcuts
+
+// --- State Management ---
+const appState = {
+    onboardingData: {},
+    systemStream: null,
+    micStream: null,
+    socket: null,
+};
 
 // --- DOM Elements ---
+const views = {
+    onboarding: document.getElementById('onboarding-view'),
+    preflight: document.getElementById('preflight-view'),
+    live: document.getElementById('live-view'),
+};
+
+const onboardingForm = {
+    name: document.getElementById('user-name'),
+    company: document.getElementById('user-company'),
+    role: document.getElementById('user-role'),
+    resume: document.getElementById('user-resume'),
+    focusCheckboxes: document.querySelectorAll('input[name="focus"]'),
+    objectives: document.getElementById('user-objectives'),
+};
+
 const checks = {
     systemAudio: document.getElementById('check-system-audio'),
     micPermission: document.getElementById('check-mic-permission'),
@@ -9,29 +36,49 @@ const checks = {
     deepgram: document.getElementById('check-deepgram'),
     groq: document.getElementById('check-groq'),
 };
+
 const micSelect = document.getElementById('mic-select');
-const startButton = document.getElementById('start-button');
+const proceedButton = document.getElementById('proceed-to-checks');
+const startButton = document.getElementById('start-interview-button');
 
 
-/**
- * Updates the UI for a specific check item.
- * @param {HTMLElement} checkElement The container element for the check.
- * @param {'success' | 'error' | 'pending'} status The status to set.
- * @param {string} text The text to display for the check.
- */
-function updateCheckStatus(checkElement, status, text) {
-    const indicator = checkElement.querySelector('.indicator');
-    if (status === 'success') {
-        indicator.textContent = '🟢';
-    } else if (status === 'error') {
-        indicator.textContent = '🔴';
-    } else {
-        indicator.textContent = '⚪';
-    }
-    // The text node is the second child
-    checkElement.childNodes[2].nodeValue = ` ${text}`;
+// --- View Management ---
+function switchView(targetView) {
+    Object.values(views).forEach(view => view.classList.remove('active'));
+    views[targetView].classList.add('active');
 }
 
+
+// --- Logic ---
+function updateCheckStatus(checkElement, status, text) {
+    const indicator = checkElement.querySelector('.indicator');
+    // Find the text node to update, ignoring the <select> element
+    const textNode = Array.from(checkElement.childNodes).find(node =>
+        node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== ''
+    );
+    indicator.textContent = status === 'success' ? '🟢' : status === 'error' ? '🔴' : '⚪';
+    if (textNode) {
+        textNode.nodeValue = ` ${text}`;
+    }
+}
+
+function handleOnboarding() {
+    const focus = Array.from(onboardingForm.focusCheckboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+
+    appState.onboardingData = {
+        name: onboardingForm.name.value,
+        company: onboardingForm.company.value,
+        role: onboardingForm.role.value,
+        resume: onboardingForm.resume.value,
+        focus: focus,
+        objectives: onboardingForm.objectives.value,
+    };
+    console.log("Onboarding data captured:", appState.onboardingData);
+    switchView('preflight');
+    runPreFlightChecks();
+}
 
 async function runPreFlightChecks() {
     // 1. System Audio Check
@@ -39,11 +86,10 @@ async function runPreFlightChecks() {
     const systemStream = await getSystemAudio();
     if (systemStream) {
         updateCheckStatus(checks.systemAudio, 'success', 'System Audio OK');
-        // Stop the track to release the resource, we just needed permission
         systemStream.getTracks().forEach(track => track.stop());
     } else {
         updateCheckStatus(checks.systemAudio, 'error', 'System Audio Permission Denied');
-        return; // Stop checks if this fails
+        return;
     }
 
     // 2. Microphone Check
@@ -57,23 +103,26 @@ async function runPreFlightChecks() {
         updateCheckStatus(checks.micSelection, 'error', 'Microphone Selection Failed');
         return;
     }
-
-    // TODO: Add checks for backend, Deepgram, and Groq
+    
+    // 3. Backend Connection and API Key Checks
+    connectWebSocket();
 }
 
 function connectWebSocket() {
+    updateCheckStatus(checks.backend, 'pending', 'Connecting to Backend...');
     const socket = new WebSocket("ws://127.0.0.1:8002/ws");
+    appState.socket = socket;
 
     socket.onopen = function(e) {
         console.log("[open] Connection established");
         updateCheckStatus(checks.backend, 'success', 'Backend Connected');
-        // Now, let's check the API keys
-        checkApiKeys(socket);
+        // The backend will automatically start sending API key status
+        updateCheckStatus(checks.deepgram, 'pending', 'Checking Deepgram API...');
+        updateCheckStatus(checks.groq, 'pending', 'Checking Groq API...');
     };
 
     socket.onclose = function(event) {
         updateCheckStatus(checks.backend, 'error', 'Backend Disconnected');
-        // Optional: implement reconnect logic if needed
     };
 
     socket.onerror = function(error) {
@@ -94,46 +143,35 @@ function connectWebSocket() {
             } else {
                 updateCheckStatus(checkElement, 'error', `${serviceName} API Key Invalid`);
             }
-            // After each key check, see if we can enable the start button
             checkAllSystemsGo();
         }
     };
 }
 
-function checkApiKeys(socket) {
-    // The backend now sends status immediately upon connection,
-    // so we just set the status to pending here.
-    // The onmessage handler will do the rest.
-    updateCheckStatus(checks.deepgram, 'pending', 'Checking Deepgram API...');
-    updateCheckStatus(checks.groq, 'pending', 'Checking Groq API...');
-}
-
 function checkAllSystemsGo() {
-    // Check if all indicators are green
     const allGreen = Object.values(checks).every(
         check => check.querySelector('.indicator').textContent === '🟢'
     );
-
     if (allGreen) {
         startButton.disabled = false;
-        console.log("All systems go! Ready to start.");
+        console.log("All systems go! Ready to start interview.");
     }
 }
 
 
 // --- Event Listeners ---
+proceedButton.addEventListener('click', handleOnboarding);
+
 window.addEventListener('DOMContentLoaded', () => {
-    runPreFlightChecks().then(() => {
-        // Only connect WebSocket if initial media checks are okay
-        const micOk = checks.micPermission.querySelector('.indicator').textContent === '🟢';
-        const systemAudioOk = checks.systemAudio.querySelector('.indicator').textContent === '🟢';
-        if (micOk && systemAudioOk) {
-            connectWebSocket();
-        } else {
-            updateCheckStatus(checks.backend, 'error', 'Backend check skipped');
-        }
-    });
+    switchView('onboarding');
 });
 
-// This section was incorrect and has been removed.
-// The logic is now correctly placed inside socket.onmessage.
+// --- Developer Shortcut ---
+if (DEV_MODE) {
+    window.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.key === 'j') {
+            e.preventDefault();
+            autofillForTesting(onboardingForm);
+        }
+    });
+}
