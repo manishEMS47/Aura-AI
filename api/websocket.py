@@ -24,14 +24,15 @@ async def websocket_endpoint(websocket: WebSocket):
             # First, send the raw transcript to the client for display
             await send_json(websocket, "transcript_update", data)
 
-            # Now, check if it's the interviewer speaking and get a suggestion
-            # With our new system: 0 = candidate, 1 = interviewer
-            if data.get('speaker') == 1 and data.get('transcript'):
+            # Swap the speaker assignments since they're backwards:
+            # Speaker 0 = System audio (INTERVIEWER)  
+            # Speaker 1 = Microphone (CANDIDATE)
+            if data.get('speaker') == 0 and data.get('transcript'):
                 print(f"🎤 INTERVIEWER: {data['transcript']}")
                 suggestion = get_ai_suggestion(data['transcript'], onboarding_context)
                 await send_json(websocket, "suggestion_update", {"suggestion": suggestion})
                 print(f"🤖 AI SUGGESTION: {suggestion}")
-            elif data.get('speaker') == 0 and data.get('transcript'):
+            elif data.get('speaker') == 1 and data.get('transcript'):
                 print(f"👤 CANDIDATE: {data['transcript']}")
                 # No AI suggestion needed for candidate speech
         except WebSocketDisconnect:
