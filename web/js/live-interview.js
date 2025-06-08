@@ -144,6 +144,7 @@ class LiveInterviewUI {
                 this.currentInterviewerElement = this.createMessageElement(question, 'interviewer');
                 this.conversationStream.appendChild(this.currentInterviewerElement);
                 this.updateInterviewerMessage(question);
+                this.updateEmptyState();
             }
         } else {
             // For final results
@@ -153,6 +154,7 @@ class LiveInterviewUI {
                 this.addMessage(question, 'interviewer');
             }
             this.hideActivity();
+            this.updateEmptyState();
         }
     }
 
@@ -168,6 +170,7 @@ class LiveInterviewUI {
         this.startStreaming(this.currentAIElement, response, true); // true for AI response
         this.scrollToBottom();
         this.hideActivity();
+        this.updateEmptyState();
     }
 
     // Add message to conversation
@@ -176,6 +179,7 @@ class LiveInterviewUI {
         this.conversationStream.appendChild(messageElement);
         this.startStreaming(messageElement, content);
         this.scrollToBottom();
+        this.updateEmptyState();
     }
 
     // Create message element
@@ -462,6 +466,19 @@ class LiveInterviewUI {
         this.currentInterviewerElement = null;
         this.currentAIElement = null;
         this.isStreaming = false;
+        this.updateEmptyState();
+    }
+
+    // Update empty state class
+    updateEmptyState() {
+        if (!this.conversationStream) return;
+        
+        const messageCount = this.conversationStream.querySelectorAll('.message').length;
+        if (messageCount === 0) {
+            this.conversationStream.classList.add('no-messages');
+        } else {
+            this.conversationStream.classList.remove('no-messages');
+        }
     }
 
     // Toggle microphone mute
@@ -497,6 +514,7 @@ class LiveInterviewUI {
         this.clearConversation();
         this.showActivity('Listening...');
         this.updateCSSTransparency(); // Apply initial transparency settings
+        this.updateEmptyState();
         
         // Reset scroll state
         this.userHasScrolled = false;

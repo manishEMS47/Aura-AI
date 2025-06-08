@@ -188,6 +188,19 @@
     box-sizing: border-box;
 }
 
+/* When conversation stream has no messages, don't let it expand */
+.conversation-stream.no-messages {
+    flex: 0;
+    min-height: 0;
+    padding: 0;
+}
+
+.conversation-stream:empty {
+    flex: 0;
+    min-height: 0;
+    padding: 0;
+}
+
 /* Ensure messages don't overflow horizontally */
 .conversation-stream > * {
     max-width: 100%;
