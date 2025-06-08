@@ -396,6 +396,16 @@ window.setAISpeed = (speed) => {
     console.log(`🤖 AI streaming speed set to ${speed}ms`);
 };
 
+window.setMarkdownEnabled = (enabled) => {
+    window.liveInterviewUI.streaming.setMarkdownEnabled(enabled);
+    console.log(`📝 Markdown processing ${enabled ? 'enabled' : 'disabled'}`);
+};
+
+window.setMarkdownSpeed = (speed) => {
+    window.liveInterviewUI.streaming.setMarkdownSpeed(speed);
+    console.log(`📝 Markdown element speed set to ${speed}ms`);
+};
+
 // Smart scroll controls
 window.forceScrollToBottom = () => {
     if (window.liveInterviewUI) {
@@ -435,6 +445,33 @@ window.setSlowStreaming = () => {
 window.setInstantMode = () => {
     window.setInterviewStreaming(false);
     console.log('⚡ Instant mode activated - no streaming animations');
+};
+
+// Markdown-specific presets
+window.setFastMarkdown = () => {
+    window.setMarkdownEnabled(true);
+    window.setMarkdownSpeed(50);
+    window.setInterviewSpeed(8);
+    window.setAISpeed(3);
+    console.log('📝 Fast markdown mode activated');
+};
+
+window.setSlowMarkdown = () => {
+    window.setMarkdownEnabled(true);
+    window.setMarkdownSpeed(150);
+    window.setInterviewSpeed(20);
+    window.setAISpeed(6);
+    console.log('📝 Slow markdown mode activated');
+};
+
+window.disableMarkdown = () => {
+    window.setMarkdownEnabled(false);
+    console.log('📝 Markdown processing disabled - plain text only');
+};
+
+window.enableMarkdown = () => {
+    window.setMarkdownEnabled(true);
+    console.log('📝 Markdown processing enabled - formatted text');
 };
 
 export default window.liveInterviewUI; 
