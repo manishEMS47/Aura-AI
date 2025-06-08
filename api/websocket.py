@@ -26,72 +26,71 @@ async def websocket_endpoint(websocket: WebSocket):
         "process_all_speakers": True,
         "is_universally_muted": False # System-wide pause
     }
-    transcript_buffer = ""
-    buffer_timer = None
+    
+    # --- DECOUPLED TRANSCRIPT BUFFERING (FINAL) ---
+    # This new system is robust against unreliable `is_final` flags and speaker diarization.
+    # It accumulates final transcripts and only processes them after a period of true silence.
+    aggregated_final_transcript = ""
+    silence_timer = None
 
-    async def process_buffered_transcript():
-        nonlocal transcript_buffer
-        if transcript_buffer:
-            print(f"✅ Processing buffered transcript: {transcript_buffer}")
+    async def process_aggregated_transcript():
+        nonlocal aggregated_final_transcript
+        
+        if aggregated_final_transcript:
+            print(f"✅ Silence detected. Processing transcript: {aggregated_final_transcript}")
+            
             if llm_manager:
-                answer = await llm_manager.get_ai_answer(transcript_buffer)
+                answer = await llm_manager.get_ai_answer(aggregated_final_transcript)
                 await send_json(websocket, "ai_answer", {"answer": answer})
                 print(f"🤖 AI ANSWER: {answer}")
-            else:
-                print("⚠️ LLM Manager not initialized, cannot get AI answer.")
-            transcript_buffer = "" # Clear buffer after processing
+            
+            # IMPORTANT: Reset the buffer after processing.
+            aggregated_final_transcript = ""
+        # If buffer is empty, do nothing.
 
     async def on_transcript(data):
-        """Callback function to handle transcripts from Deepgram."""
-        nonlocal transcript_buffer, buffer_timer
+        nonlocal aggregated_final_transcript, silence_timer
         try:
-            # If universally muted, do not process any transcripts
             if session_state.get("is_universally_muted", False):
-                print("⏸️ System paused. Ignoring transcript.")
                 return
 
             await send_json(websocket, "transcript_update", data)
 
+            transcript = data.get('transcript', '').strip()
             is_final = data.get('is_final', False)
-            transcript = data.get('transcript', '')
+
+            # --- 1. Universal Silence Timer Management ---
+            # Any transcript activity, interim or final, proves the user is not silent.
+            # We unconditionally cancel any pending processing and reset the silence timer.
+            if transcript:
+                if silence_timer and not silence_timer.done():
+                    silence_timer.cancel()
+                
+                async def delayed_processing():
+                    await asyncio.sleep(1.2)
+                    await process_aggregated_transcript() # Fire the processor after silence
+                
+                silence_timer = asyncio.create_task(delayed_processing())
+
+            # --- 2. Final Transcript Accumulation ---
+            # Determine if this transcript should be processed based on settings
             speaker = data.get('speaker')
-
-            # --- Mute-Aware Speaker Logic ---
-            # --- Enhanced Mute-Aware Speaker Logic ---
             if session_state["is_muted"]:
-                # When muted, treat all speakers as interviewer
                 should_process = True
-                speaker_label = "Interviewer"
             elif session_state["process_all_speakers"]:
-                # When process all speakers enabled, process everyone
                 should_process = True
-                speaker_label = f"Speaker {speaker}" if speaker is not None else "Unknown Speaker"
             else:
-                # Legacy behavior - only process speaker 0 (interviewer)
                 should_process = (speaker == 0)
-                speaker_label = "Interviewer"
 
-            if transcript and should_process:
-                # Add speaker-labeled transcript to buffer
-                labeled_transcript = f"{speaker_label}: {transcript}"
-                transcript_buffer += labeled_transcript + " "
-                
-                if buffer_timer and not buffer_timer.done():
-                    buffer_timer.cancel()
-                
-                if is_final:
-                    async def delayed_processing():
-                        await asyncio.sleep(0.6)
-                        await process_buffered_transcript()
-                    
-                    buffer_timer = asyncio.create_task(delayed_processing())
+            # We only add to our buffer if the transcript is final and should be processed.
+            if is_final and should_process:
+                aggregated_final_transcript = (aggregated_final_transcript + " " + transcript).strip()
+                print(f"📝 Appended to aggregate buffer. New buffer: '{aggregated_final_transcript}'")
+            elif is_final and not should_process: # Candidate speech
+                 print(f"👤 CANDIDATE (FINAL): {transcript}")
+                 if llm_manager:
+                     llm_manager.process_candidate_response(transcript)
 
-            elif is_final and not should_process and transcript:
-                # Handle candidate response when not processing all speakers
-                candidate_response = transcript
-                print(f"👤 CANDIDATE (FINAL): {candidate_response}")
-                llm_manager.process_candidate_response(candidate_response)
-                
         except WebSocketDisconnect:
             print("🔌 Client disconnected while sending transcript/answer")
         except Exception as e:
