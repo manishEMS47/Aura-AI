@@ -50,31 +50,50 @@ class WindowManager:
     def __init__(self):
         self.hwnd: Optional[int] = None
         self.is_windows = platform.system() == "Windows"
-        self.current_transparency = 1.0 # 1.0 = opaque, 0.0 = transparent
+        self.current_transparency = 1.0
         self.is_ghost_mode = False
-        
-        # Windows API constants
+
         if self.is_windows:
-            self.GWL_EXSTYLE = -20
-            self.WS_EX_LAYERED = 0x80000
-            self.WS_EX_TOPMOST = 0x8
-            self.WS_EX_TRANSPARENT = 0x20
-            self.LWA_ALPHA = 0x2
-            self.HWND_TOPMOST = -1
-            self.HWND_NOTOPMOST = -2
-            self.SWP_NOMOVE = 0x2
-            self.SWP_NOSIZE = 0x1
-            
-            # Windows API functions
-            self.user32 = ctypes.windll.user32
-            self.GetWindowLongW = self.user32.GetWindowLongW
-            self.SetWindowLongW = self.user32.SetWindowLongW
-            self.SetLayeredWindowAttributes = self.user32.SetLayeredWindowAttributes
-            self.SetWindowPos = self.user32.SetWindowPos
-            
-            # CRITICAL FIX: Define argtypes for SetWindowPos to prevent Error 1400
-            self.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, wintypes.INT, wintypes.INT, wintypes.INT, wintypes.INT, wintypes.UINT]
-            self.SetWindowPos.restype = wintypes.BOOL
+            self._setup_win32_api_definitions()
+
+    def _setup_win32_api_definitions(self):
+        """Defines all necessary Win32 API functions, constants, and types."""
+        # Constants
+        self.GWL_EXSTYLE = -20
+        self.WS_EX_LAYERED = 0x80000
+        self.WS_EX_TOPMOST = 0x8
+        self.WS_EX_TRANSPARENT = 0x20
+        self.LWA_ALPHA = 0x2
+        self.HWND_TOPMOST = -1
+        self.HWND_NOTOPMOST = -2
+        self.SWP_NOMOVE = 0x2
+        self.SWP_NOSIZE = 0x1
+
+        self.user32 = ctypes.windll.user32
+        
+        # Correctly define SetWindowLongPtr and GetWindowLongPtr for 32/64-bit
+        is_64bit = platform.architecture()[0] == '64bit'
+        if is_64bit:
+            self.GetWindowLongPtr = self.user32.GetWindowLongPtrW
+            self.SetWindowLongPtr = self.user32.SetWindowLongPtrW
+        else:
+            self.GetWindowLongPtr = self.user32.GetWindowLongW
+            self.SetWindowLongPtr = self.user32.SetWindowLongW
+
+        self.GetWindowLongPtr.restype = wintypes.LPARAM
+        self.GetWindowLongPtr.argtypes = [wintypes.HWND, ctypes.c_int]
+        self.SetWindowLongPtr.restype = wintypes.LPARAM
+        self.SetWindowLongPtr.argtypes = [wintypes.HWND, ctypes.c_int, wintypes.LPARAM]
+
+        # SetLayeredWindowAttributes
+        self.SetLayeredWindowAttributes = self.user32.SetLayeredWindowAttributes
+        self.SetLayeredWindowAttributes.argtypes = [wintypes.HWND, wintypes.COLORREF, wintypes.BYTE, wintypes.DWORD]
+        self.SetLayeredWindowAttributes.restype = wintypes.BOOL
+
+        # SetWindowPos
+        self.SetWindowPos = self.user32.SetWindowPos
+        self.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.UINT]
+        self.SetWindowPos.restype = wintypes.BOOL
             
     def set_window_handle(self, window_handle: int):
         """Set the window handle for transparency operations"""
@@ -89,12 +108,12 @@ class WindowManager:
             
         try:
             # Get current window style
-            ex_style = self.GetWindowLongW(self.hwnd, self.GWL_EXSTYLE)
+            ex_style = self.GetWindowLongPtr(self.hwnd, self.GWL_EXSTYLE)
             
             # Add layered window style if not present
             if not (ex_style & self.WS_EX_LAYERED):
                 new_style = ex_style | self.WS_EX_LAYERED
-                self.SetWindowLongW(self.hwnd, self.GWL_EXSTYLE, new_style)
+                self.SetWindowLongPtr(self.hwnd, self.GWL_EXSTYLE, new_style)
                 
             return True
         except Exception as e:
@@ -232,7 +251,7 @@ class WindowManager:
         """
         try:
             # Get current extended window style
-            ex_style = self.GetWindowLongW(self.hwnd, self.GWL_EXSTYLE)
+            ex_style = self.GetWindowLongPtr(self.hwnd, self.GWL_EXSTYLE)
             
             if on_top:
                 # Add topmost style
@@ -242,7 +261,7 @@ class WindowManager:
                 new_style = ex_style & ~self.WS_EX_TOPMOST
             
             # Set the new style
-            result = self.SetWindowLongW(self.hwnd, self.GWL_EXSTYLE, new_style)
+            result = self.SetWindowLongPtr(self.hwnd, self.GWL_EXSTYLE, new_style)
             
             if result or ex_style != new_style:
                 # Force window update
@@ -277,7 +296,7 @@ class WindowManager:
             return
 
         try:
-            current_style = self.GetWindowLongW(self.hwnd, self.GWL_EXSTYLE)
+            current_style = self.GetWindowLongPtr(self.hwnd, self.GWL_EXSTYLE)
             if enabled:
                 new_style = current_style | self.WS_EX_TRANSPARENT
                 print("👻 Ghost Mode Enabled (click-through)")
@@ -285,7 +304,7 @@ class WindowManager:
                 new_style = current_style & ~self.WS_EX_TRANSPARENT
                 print("🖱️ Ghost Mode Disabled (normal interaction)")
 
-            self.SetWindowLongW(self.hwnd, self.GWL_EXSTYLE, new_style)
+            self.SetWindowLongPtr(self.hwnd, self.GWL_EXSTYLE, new_style)
             self.is_ghost_mode = enabled
             
             # Force re-apply always-on-top after style change
@@ -330,6 +349,7 @@ class WindowManager:
         
         with keyboard.GlobalHotKeys(hotkey_map) as h:
             h.join()
+
 
     def start_hotkey_listener(self):
         """Starts the global hotkey listener in a separate thread."""
