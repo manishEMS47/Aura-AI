@@ -1,11 +1,14 @@
-// Live Interview Interface Module
+// Live Interview Interface Module (Main Coordinator)
 import { devLog, isDev } from './config.js';
+import { LiveStreaming } from './live-streaming.js';
+import { LiveControls } from './live-controls.js';
 
 class LiveInterviewUI {
     constructor() {
         this.conversationStream = null;
         this.activityIndicator = null;
         this.endButton = null;
+        this.muteButton = null;
         this.currentInterviewerElement = null; // Track interviewer message separately
         this.currentAIElement = null; // Track AI message separately
         this.isStreaming = false;
@@ -16,15 +19,14 @@ class LiveInterviewUI {
         this.scrollTimeout = null;
         this.autoScrollEnabled = true;
         
-        // Configuration
-        this.config = {
+        // Initialize modules
+        this.streaming = new LiveStreaming({
             enableStreaming: true,
-            streamingSpeed: 15, // milliseconds between words (lower = faster)
-            aiStreamingSpeed: 5, // 2x faster than before (was 40, now 20)
-            bgTransparency: 0.85, // Background transparency (0-1)
-            contentTransparency: 0.15, // Content transparency (0-1)
-            codeTransparency: 0.45 // Code block transparency (0-1) - less transparent for better readability
-        };
+            streamingSpeed: 15,
+            aiStreamingSpeed: 5
+        });
+        
+        this.controls = new LiveControls();
     }
 
     // Initialize elements
@@ -55,8 +57,6 @@ class LiveInterviewUI {
 
     setupSmartScroll() {
         if (!this.conversationStream) return;
-        
-        let scrollTimer = null;
         
         // Detect user scrolling
         this.conversationStream.addEventListener('scroll', () => {
@@ -123,6 +123,10 @@ class LiveInterviewUI {
     // Show activity indicator
     showActivity(text = 'Listening...') {
         if (this.activityIndicator) {
+            // Check if microphone is muted and update text accordingly
+            if (typeof window.isMicrophoneMuted === 'function' && window.isMicrophoneMuted()) {
+                text = 'Microphone Muted - Press Alt+M to unmute';
+            }
             this.activityIndicator.querySelector('span').textContent = text;
             this.activityIndicator.classList.add('show');
         }
@@ -200,167 +204,25 @@ class LiveInterviewUI {
         return messageDiv;
     }
 
-    // Start streaming animation
+    // Start streaming animation (delegated to streaming module)
     startStreaming(messageElement, content, isAI = false) {
         const contentDiv = messageElement.querySelector('.streaming-text');
-        const speed = isAI ? this.config.aiStreamingSpeed : this.config.streamingSpeed;
+        const speed = isAI ? this.streaming.config.aiStreamingSpeed : this.streaming.config.streamingSpeed;
         
         this.isStreaming = true;
-        this.streamContent(contentDiv, content, speed);
-    }
-
-    // Stream content with typing effect
-    async streamContent(container, content, speed = 25) {
-        if (!this.config.enableStreaming) {
-            // If streaming is disabled, show content immediately
-            this.displayInstantText(container, content);
-            container.parentElement.classList.add('complete');
+        
+        // Use streaming module with scroll callback
+        this.streaming.streamContent(contentDiv, content, speed).then(() => {
+            messageElement.classList.add('complete');
             this.isStreaming = false;
-            return;
-        }
-
-        // Check for code blocks
-        if (content.includes('```')) {
-            await this.streamComplexContent(container, content, speed);
-        } else {
-            await this.streamSimpleText(container, content, speed);
-        }
+        });
         
-        container.parentElement.classList.add('complete');
-        this.isStreaming = false;
-    }
-
-    // Stream simple text
-    async streamSimpleText(container, text, speed) {
-        const words = text.split(' ');
-        
-        for (let i = 0; i < words.length; i++) {
-            const wordSpan = document.createElement('span');
-            wordSpan.className = 'word';
-            wordSpan.textContent = words[i] + (i < words.length - 1 ? ' ' : '');
-            
-            container.appendChild(wordSpan);
-            
-            setTimeout(() => {
-                wordSpan.style.opacity = '1';
-            }, 10);
-            
-            await this.delay(speed);
-            
-            // Force scroll during streaming (every few words)
-            if (i % 3 === 0) {
-                this.scrollToBottom();
-            }
-        }
-        
-        // Final scroll at end
-        this.scrollToBottom();
-    }
-
-    // Stream complex content with code
-    async streamComplexContent(container, content, speed) {
-        const parts = this.parseContent(content);
-        
-        for (const part of parts) {
-            if (part.type === 'text') {
-                await this.streamSimpleText(container, part.content, speed);
-            } else if (part.type === 'code') {
-                this.addCodeBlock(container, part.content, part.language);
-                await this.delay(200); // Reduced delay for faster display
-            }
-            this.scrollToBottom();
-        }
-    }
-
-    // Parse content for code blocks
-    parseContent(content) {
-        const parts = [];
-        const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
-        let lastIndex = 0;
-        let match;
-
-        while ((match = codeBlockRegex.exec(content)) !== null) {
-            // Add text before code block
-            if (match.index > lastIndex) {
-                const textPart = content.substring(lastIndex, match.index);
-                if (textPart.trim()) {
-                    parts.push({ type: 'text', content: textPart.trim() });
-                }
-            }
-            
-            // Add code block
-            parts.push({
-                type: 'code',
-                language: match[1] || 'javascript',
-                content: match[2].trim()
-            });
-            
-            lastIndex = match.index + match[0].length;
-        }
-        
-        // Add remaining text
-        if (lastIndex < content.length) {
-            const remainingText = content.substring(lastIndex);
-            if (remainingText.trim()) {
-                parts.push({ type: 'text', content: remainingText.trim() });
-            }
-        }
-        
-        // If no code blocks found, return as simple text
-        if (parts.length === 0) {
-            parts.push({ type: 'text', content: content });
-        }
-        
-        return parts;
-    }
-
-    // Add code block
-    addCodeBlock(container, code, language) {
-        const codeBlockDiv = document.createElement('div');
-        codeBlockDiv.className = 'code-block';
-        
-        const headerDiv = document.createElement('div');
-        headerDiv.className = 'code-header';
-        headerDiv.innerHTML = `
-            <span class="language-tag">${language}</span>
-            <button class="copy-btn" onclick="navigator.clipboard.writeText(\`${code.replace(/`/g, '\\`')}\`)">Copy</button>
-        `;
-        
-        const preElement = document.createElement('pre');
-        const codeElement = document.createElement('code');
-        codeElement.className = `language-${language}`;
-        codeElement.textContent = code;
-        
-        preElement.appendChild(codeElement);
-        codeBlockDiv.appendChild(headerDiv);
-        codeBlockDiv.appendChild(preElement);
-        
-        container.appendChild(codeBlockDiv);
-        
-        // Apply syntax highlighting
-        if (window.Prism) {
-            window.Prism.highlightElement(codeElement);
-        }
-    }
-
-    // Legacy method kept for compatibility - now unused
-    updateCurrentMessage(content, type) {
-        // This method is deprecated - use specific interviewer/AI methods instead
-    }
-
-    // Display text instantly (for interim updates)
-    displayInstantText(container, text) {
-        const words = text.split(' ');
-        
-        for (let i = 0; i < words.length; i++) {
-            const wordSpan = document.createElement('span');
-            wordSpan.className = 'word';
-            wordSpan.style.opacity = '1'; // Show immediately
-            wordSpan.textContent = words[i] + (i < words.length - 1 ? ' ' : '');
-            container.appendChild(wordSpan);
-        }
-        
-        this.scrollToBottom();
+        // Setup scroll callback for streaming
+        const originalStreamSimpleText = this.streaming.streamSimpleText.bind(this.streaming);
+        this.streaming.streamSimpleText = async (container, text, speed, onProgress) => {
+            const scrollCallback = () => this.scrollToBottom();
+            return originalStreamSimpleText(container, text, speed, scrollCallback);
+        };
     }
 
     // Update interviewer message (for interim results)
@@ -371,9 +233,9 @@ class LiveInterviewUI {
             // Mark as interim to hide typing cursor
             this.currentInterviewerElement.classList.add('interim');
             
-            // Clear and update instantly
+            // Clear and update instantly using streaming module
             contentDiv.innerHTML = '';
-            this.displayInstantText(contentDiv, content);
+            this.streaming.displayInstantText(contentDiv, content);
         }
     }
 
@@ -385,7 +247,11 @@ class LiveInterviewUI {
             
             const contentDiv = this.currentInterviewerElement.querySelector('.streaming-text');
             contentDiv.innerHTML = '';
-            this.streamContent(contentDiv, content, this.config.streamingSpeed);
+            
+            // Use streaming module for final content
+            this.streaming.streamContent(contentDiv, content, this.streaming.config.streamingSpeed).then(() => {
+                this.currentInterviewerElement.classList.add('complete');
+            });
             
             // Clear the reference since this is final
             this.currentInterviewerElement = null;
@@ -393,43 +259,6 @@ class LiveInterviewUI {
             // Reset auto-scroll for new response
             this.autoScrollEnabled = true;
         }
-    }
-
-    // Configuration methods
-    setStreamingEnabled(enabled) {
-        this.config.enableStreaming = enabled;
-    }
-
-    setStreamingSpeed(speed) {
-        this.config.streamingSpeed = Math.max(10, Math.min(100, speed)); // 10-100ms range
-    }
-
-    setAIStreamingSpeed(speed) {
-        this.config.aiStreamingSpeed = Math.max(5, Math.min(50, speed)); // 5-50ms range
-    }
-
-    // Transparency configuration methods
-    setBackgroundTransparency(transparency) {
-        this.config.bgTransparency = Math.max(0, Math.min(1, transparency));
-        this.updateCSSTransparency();
-    }
-
-    setContentTransparency(transparency) {
-        this.config.contentTransparency = Math.max(0, Math.min(1, transparency));
-        this.updateCSSTransparency();
-    }
-
-    setCodeTransparency(transparency) {
-        this.config.codeTransparency = Math.max(0, Math.min(1, transparency));
-        this.updateCSSTransparency();
-    }
-
-    // Update CSS transparency variables
-    updateCSSTransparency() {
-        const root = document.documentElement;
-        root.style.setProperty('--bg-transparency', this.config.bgTransparency);
-        root.style.setProperty('--content-transparency', this.config.contentTransparency);
-        root.style.setProperty('--code-transparency', this.config.codeTransparency);
     }
 
     // Smart scroll to bottom (respects user interaction)
@@ -451,11 +280,6 @@ class LiveInterviewUI {
             this.userHasScrolled = false;
             this.autoScrollEnabled = true;
         }
-    }
-
-    // Delay utility
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     // Clear conversation
@@ -486,6 +310,11 @@ class LiveInterviewUI {
         if (typeof window.toggleMicrophoneMute === 'function') {
             const isMuted = window.toggleMicrophoneMute();
             this.updateMuteButton(isMuted);
+            
+            // Update activity indicator text based on mute state
+            if (this.activityIndicator && this.activityIndicator.classList.contains('show')) {
+                this.showActivity(); // This will check mute state and update text
+            }
         }
     }
 
@@ -513,8 +342,15 @@ class LiveInterviewUI {
     initialize() {
         this.clearConversation();
         this.showActivity('Listening...');
-        this.updateCSSTransparency(); // Apply initial transparency settings
+        this.controls.initialize(); // Initialize controls module
         this.updateEmptyState();
+        
+        // Set default mute state (muted by default for privacy)
+        if (typeof window.isMicrophoneMuted === 'function') {
+            const isMuted = window.isMicrophoneMuted();
+            this.updateMuteButton(isMuted);
+            console.log(`🎤 UI initialized with microphone ${isMuted ? 'muted' : 'unmuted'}`);
+        }
         
         // Reset scroll state
         this.userHasScrolled = false;
@@ -526,6 +362,14 @@ class LiveInterviewUI {
         
         console.log('🎬 Live interview UI initialized');
     }
+
+    // Get current configuration
+    getConfig() {
+        return {
+            streaming: this.streaming.getConfig(),
+            transparency: this.controls.getConfig()
+        };
+    }
 }
 
 // Create global instance
@@ -533,175 +377,19 @@ window.liveInterviewUI = new LiveInterviewUI();
 
 // Add global configuration functions for easy control
 window.setInterviewStreaming = (enabled) => {
-    window.liveInterviewUI.setStreamingEnabled(enabled);
+    window.liveInterviewUI.streaming.setStreamingEnabled(enabled);
     console.log(`🎬 Streaming ${enabled ? 'enabled' : 'disabled'}`);
 };
 
 window.setInterviewSpeed = (speed) => {
-    window.liveInterviewUI.setStreamingSpeed(speed);
+    window.liveInterviewUI.streaming.setStreamingSpeed(speed);
     console.log(`⚡ Interviewer streaming speed set to ${speed}ms`);
 };
 
 window.setAISpeed = (speed) => {
-    window.liveInterviewUI.setAIStreamingSpeed(speed);
+    window.liveInterviewUI.streaming.setAIStreamingSpeed(speed);
     console.log(`🤖 AI streaming speed set to ${speed}ms`);
 };
-
-// Transparency configuration functions
-window.setBackgroundTransparency = (transparency) => {
-    window.liveInterviewUI.setBackgroundTransparency(transparency);
-    console.log(`🌙 Background transparency set to ${transparency}`);
-};
-
-window.setContentTransparency = (transparency) => {
-    window.liveInterviewUI.setContentTransparency(transparency);
-    console.log(`🖼️ Content transparency set to ${transparency}`);
-};
-
-window.setCodeTransparency = (transparency) => {
-    window.liveInterviewUI.setCodeTransparency(transparency);
-    console.log(`💻 Code transparency set to ${transparency}`);
-};
-
-// Transparency presets
-window.setMinimalMode = () => {
-    window.setBackgroundTransparency(0.95);
-    window.setContentTransparency(0.05);
-    window.setCodeTransparency(0.25);
-    console.log('👤 Minimal mode activated');
-};
-
-window.setGhostMode = () => {
-    window.setBackgroundTransparency(0.98);
-    window.setContentTransparency(0.02);
-    window.setCodeTransparency(0.15);
-    console.log('👻 Ghost mode activated - maximum transparency');
-};
-
-window.setStealthMode = () => {
-    window.setBackgroundTransparency(0.90);
-    window.setContentTransparency(0.10);
-    window.setCodeTransparency(0.35);
-    console.log('🥷 Stealth mode activated');
-};
-
-window.setDefaultTransparency = () => {
-    window.setBackgroundTransparency(0.85);
-    window.setContentTransparency(0.15);
-    window.setCodeTransparency(0.45);
-    console.log('🎨 Default transparency restored');
-};
-
-// Windows-level transparency controls
-window.setWindowTransparency = async (transparency) => {
-    try {
-        const response = await fetch('/api/transparency', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ transparency: transparency })
-        });
-        const result = await response.json();
-        if (result.success) {
-            console.log(`🪟 ${result.message}`);
-        } else {
-            console.error('❌ Failed to set window transparency');
-        }
-    } catch (error) {
-        console.error('❌ Error setting window transparency:', error);
-    }
-};
-
-window.setWindowTransparencyPercent = async (percent) => {
-    try {
-        const response = await fetch('/api/transparency/percent', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ percent: percent })
-        });
-        const result = await response.json();
-        if (result.success) {
-            console.log(`🪟 ${result.message}`);
-        } else {
-            console.error('❌ Failed to set window transparency');
-        }
-    } catch (error) {
-        console.error('❌ Error setting window transparency:', error);
-    }
-};
-
-// Window transparency presets
-window.setInterviewMode = async () => {
-    try {
-        const response = await fetch('/api/transparency/presets/transparent', {
-            method: 'POST'
-        });
-        const result = await response.json();
-        if (result.success) {
-            console.log('🎯 Interview mode activated - window is now 40% opaque');
-        }
-    } catch (error) {
-        console.error('❌ Error setting interview mode:', error);
-    }
-};
-
-window.setSemiTransparentMode = async () => {
-    try {
-        const response = await fetch('/api/transparency/presets/semi-transparent', {
-            method: 'POST'
-        });
-        const result = await response.json();
-        if (result.success) {
-            console.log('🌫️ Semi-transparent mode activated - window is now 70% opaque');
-        }
-    } catch (error) {
-        console.error('❌ Error setting semi-transparent mode:', error);
-    }
-};
-
-window.setOpaqueMode = async () => {
-    try {
-        const response = await fetch('/api/transparency/presets/opaque', {
-            method: 'POST'
-        });
-        const result = await response.json();
-        if (result.success) {
-            console.log('🎨 Opaque mode activated - window is now 100% opaque');
-        }
-    } catch (error) {
-        console.error('❌ Error setting opaque mode:', error);
-    }
-};
-
-window.getTransparencyInfo = async () => {
-    try {
-        const response = await fetch('/api/transparency');
-        const info = await response.json();
-        console.log('🪟 Window Transparency Info:', info);
-        return info;
-    } catch (error) {
-        console.error('❌ Error getting transparency info:', error);
-    }
-};
-
-// Always-on-top controls
-window.setAlwaysOnTop = async (onTop = true) => {
-    try {
-        const response = await fetch('/api/window/always-on-top', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ on_top: onTop })
-        });
-        const result = await response.json();
-        if (result.success) {
-            console.log(`📌 ${result.message}`);
-        }
-    } catch (error) {
-        console.error('❌ Error setting always on top:', error);
-    }
-};
-
-window.enableAlwaysOnTop = () => window.setAlwaysOnTop(true);
-window.disableAlwaysOnTop = () => window.setAlwaysOnTop(false);
 
 // Smart scroll controls
 window.forceScrollToBottom = () => {

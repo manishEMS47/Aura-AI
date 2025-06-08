@@ -7,7 +7,7 @@ import { devLog, devError } from './config.js';
 let audioContext = null;
 let micStream = null;
 let systemStream = null;
-let isMuted = false;
+let isMuted = true; // Default to muted for privacy
 let micGainNode = null;
 
 /**
@@ -81,9 +81,10 @@ export async function startAudioProcessing(micId, onAudioData) {
         const micSource = audioContext.createMediaStreamSource(micStream);
         const systemSource = audioContext.createMediaStreamSource(systemStream);
         
-        // Create gain node for microphone muting
+        // Create gain node for microphone muting (starts muted by default)
         micGainNode = audioContext.createGain();
         micGainNode.gain.value = isMuted ? 0 : 1;
+        devLog(`🎤 Microphone initialized as ${isMuted ? 'muted' : 'unmuted'} by default`);
         
         // Connect mic through gain node for mute control
         micSource.connect(micGainNode);
@@ -151,7 +152,7 @@ export function stopAudioProcessing() {
         audioContext = null;
     }
     
-    // Reset mute state
-    isMuted = false;
+    // Reset mute state to default (muted)
+    isMuted = true;
     micGainNode = null;
 }

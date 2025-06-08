@@ -7,7 +7,7 @@ class HotkeyManager {
     constructor() {
         this.isAltLPressed = false;
         this.transparencyLevels = [0.2, 0.4, 0.6, 0.8, 1.0]; // 5 levels: 20%, 40%, 60%, 80%, 100%
-        this.currentTransparencyLevel = 2; // Default to 60% (index 2)
+        this.currentTransparencyLevel = 3; // Default to 80% (index 3)
         this.isEnabled = true;
         this.isAlwaysOnTop = true; // Track always-on-top state
         
@@ -280,6 +280,12 @@ class HotkeyManager {
             // Update the mute button if it exists
             if (window.liveInterviewUI && window.liveInterviewUI.updateMuteButton) {
                 window.liveInterviewUI.updateMuteButton(isMuted);
+                
+                // Update activity indicator text based on mute state
+                if (window.liveInterviewUI.activityIndicator && 
+                    window.liveInterviewUI.activityIndicator.classList.contains('show')) {
+                    window.liveInterviewUI.showActivity();
+                }
             }
             
             devLog(`🎤 Microphone ${isMuted ? 'muted' : 'unmuted'} via hotkey`);
