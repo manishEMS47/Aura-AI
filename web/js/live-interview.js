@@ -12,6 +12,7 @@ class LiveInterviewUI {
         this.currentInterviewerElement = null; // Track interviewer message separately
         this.currentAIElement = null; // Track AI message separately
         this.isStreaming = false;
+        this.eventsInitialized = false;
         
         // Smart scroll management
         this.userHasScrolled = false;
@@ -39,20 +40,19 @@ class LiveInterviewUI {
     }
 
     setupEventListeners() {
+        if (this.eventsInitialized) return;
+
         if (this.endButton) {
-            this.endButton.addEventListener('click', () => {
-                this.endInterview();
-            });
+            this.endButton.addEventListener('click', () => this.endInterview());
         }
         
         if (this.muteButton) {
-            this.muteButton.addEventListener('click', () => {
-                this.toggleMute();
-            });
+            this.muteButton.addEventListener('click', () => this.toggleMute());
         }
         
         // Setup smart scroll detection
         this.setupSmartScroll();
+        this.eventsInitialized = true;
     }
 
     setupSmartScroll() {
