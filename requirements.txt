@@ -3,7 +3,7 @@ pywin32
 fastapi
 uvicorn[standard]
 pydantic-settings
-groq
+openai
 deepgram-sdk
 requests
 deepgram-sdk==3.*

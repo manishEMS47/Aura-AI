@@ -1,7 +1,7 @@
 import asyncio
 import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from services.llm_service import verify_groq_api_key, get_ai_answer, process_candidate_response, clear_conversation_history
+from services.llm_service import verify_api_key, get_ai_answer, process_candidate_response, clear_conversation_history
 from services.stt_service import verify_deepgram_api_key, DeepgramManager
 
 router = APIRouter()
@@ -60,9 +60,9 @@ async def websocket_endpoint(websocket: WebSocket):
         # 1. Immediately check the keys upon connection
         print("🔑 Verifying API keys...")
         is_deepgram_valid = verify_deepgram_api_key()
-        is_groq_valid = verify_groq_api_key()
+        is_ai_service_valid = verify_api_key()
         await send_json(websocket, "api_key_status", {"service": "deepgram", "valid": is_deepgram_valid})
-        await send_json(websocket, "api_key_status", {"service": "groq", "valid": is_groq_valid})
+        await send_json(websocket, "api_key_status", {"service": "groq", "valid": is_ai_service_valid}) # Keep "groq" for client-side compatibility
 
         # 2. Listen for messages from the client
         while True:

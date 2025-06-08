@@ -1,80 +1,63 @@
-from groq import Groq, APIStatusError
+from openai import OpenAI, APIStatusError
 from core.config import settings
 from core.prompts import get_interview_answer_prompt, get_quick_response_prompt
 from typing import Dict, List
 
-# Global conversation history storage
+# --- Global State ---
 conversation_history: List[Dict] = []
 
-def add_to_conversation_history(interviewer_question: str = None, candidate_response: str = None):
-    """Add an exchange to the conversation history."""
-    global conversation_history
-    
-    if not settings.TRACK_CANDIDATE_RESPONSES:
-        return
-    
-    # Find or create the current exchange
-    if conversation_history and not conversation_history[-1].get('candidate_response') and candidate_response:
-        # Add candidate response to the last exchange
-        conversation_history[-1]['candidate_response'] = candidate_response
-    elif interviewer_question:
-        # Start a new exchange
-        conversation_history.append({
-            'interviewer_question': interviewer_question,
-            'candidate_response': None
-        })
-    
-    # Keep only the recent history
-    if len(conversation_history) > settings.MAX_CONVERSATION_HISTORY:
-        conversation_history = conversation_history[-settings.MAX_CONVERSATION_HISTORY:]
+# --- OpenAI Client Initialization ---
+# Create a single, reusable client instance configured from settings
+try:
+    client = OpenAI(
+        base_url=settings.OPENAI_COMPATIBLE_BASE_URL,
+        api_key=settings.OPENAI_COMPATIBLE_API_KEY,
+    )
+    print("✅ OpenAI-compatible client initialized successfully.")
+except Exception as e:
+    client = None
+    print(f"❌ CRITICAL: Failed to initialize OpenAI-compatible client: {e}")
 
-def clear_conversation_history():
-    """Clear the conversation history (e.g., when starting a new interview)."""
-    global conversation_history
-    conversation_history = []
+# --- Public Functions ---
 
-def verify_groq_api_key():
+def verify_api_key() -> bool:
     """
-    Verifies the Groq API key by making a simple test call.
-    Returns True if the key is valid, False otherwise.
+    Verifies the OpenAI-compatible API key by making a simple test call.
+    Returns True if the key and connection are valid, False otherwise.
     """
-    if not settings.GROQ_API_KEY:
+    if not client:
+        print("❌ API key verification failed: Client not initialized.")
         return False
+        
     try:
-        client = Groq(api_key=settings.GROQ_API_KEY)
-        # Make a simple, low-cost call to check credentials
+        # Make a simple, low-cost call to check credentials and connectivity
         client.models.list()
+        print("✅ OpenAI-compatible API key is valid.")
         return True
     except APIStatusError as e:
-        # This error is typically raised for authentication issues (e.g., 401)
-        print(f"❌ ERROR: Groq API key verification failed. Status: {e.status_code}, Message: {e.message}")
+        print(f"❌ ERROR: API key verification failed. Status: {e.status_code}, Message: {e.message}")
         return False
     except Exception as e:
-        print(f"❌ ERROR: An unexpected error occurred while verifying Groq key: {e}")
+        print(f"❌ ERROR: An unexpected error occurred during API key verification: {e}")
         return False
 
 def get_ai_answer(question: str, context: dict) -> str:
     """
-    Gets an AI-generated answer for an interview question.
-    Now provides full answers with dynamic length.
+    Gets an AI-generated answer for an interview question using the configured
+    OpenAI-compatible service.
     """
+    if not client:
+        return "I'm sorry, the AI service is not available at this time."
+
     try:
-        # Log the current question being processed
         print(f"🎯 PROCESSING CURRENT QUESTION: '{question}'")
-        if conversation_history:
-            print(f"📝 With {len(conversation_history)} previous exchanges in context")
-        
-        # Add the question to conversation history
         add_to_conversation_history(interviewer_question=question)
         
-        client = Groq(api_key=settings.GROQ_API_KEY)
-        
-        # ALWAYS use full context with candidate profile - this ensures AI knows about VitalBite project etc.
         if settings.PERSONALIZE_ANSWERS:
             prompt = get_interview_answer_prompt(question, context, conversation_history)
         else:
-            prompt = get_quick_response_prompt(question, context)  # Pass context for basic personalization
-        
+            prompt = get_quick_response_prompt(question, context)
+            
         chat_completion = client.chat.completions.create(
             messages=[
                 {
@@ -82,8 +65,8 @@ def get_ai_answer(question: str, context: dict) -> str:
                     "content": prompt,
                 }
             ],
-            model="llama-3.3-70b-versatile",  # Reliable model for better accuracy and longer answers
-            temperature=0.3,  # Keep it focused
+            model=settings.OPENAI_COMPATIBLE_MODEL_NAME,
+            temperature=0.6,
             top_p=0.9,
         )
         
@@ -96,14 +79,34 @@ def get_ai_answer(question: str, context: dict) -> str:
 
 def process_candidate_response(response: str):
     """
-    Process what the candidate said to add to conversation context.
-    This helps the AI provide better future responses.
+    Processes what the candidate said to add to the conversation context.
     """
     if settings.TRACK_CANDIDATE_RESPONSES and response.strip():
         add_to_conversation_history(candidate_response=response)
-        print(f"📝 Conversation context updated with candidate response")
+        print("📝 Conversation context updated with candidate response")
 
-# Legacy function name for backward compatibility
-def get_ai_suggestion(question: str, context: dict) -> str:
-    """Legacy function - now redirects to get_ai_answer."""
-    return get_ai_answer(question, context)
+def clear_conversation_history():
+    """Clears the conversation history for a new interview."""
+    global conversation_history
+    conversation_history = []
+
+# --- Private Helper Functions ---
+
+def add_to_conversation_history(interviewer_question: str = None, candidate_response: str = None):
+    """Adds an exchange to the conversation history."""
+    global conversation_history
+    
+    if not settings.TRACK_CANDIDATE_RESPONSES:
+        return
+        
+    if conversation_history and not conversation_history[-1].get('candidate_response') and candidate_response:
+        conversation_history[-1]['candidate_response'] = candidate_response
+    elif interviewer_question:
+        conversation_history.append({
+            'interviewer_question': interviewer_question,
+            'candidate_response': None
+        })
+    
+    # Enforce history limit
+    if len(conversation_history) > settings.MAX_CONVERSATION_HISTORY:
+        conversation_history = conversation_history[-settings.MAX_CONVERSATION_HISTORY:]
