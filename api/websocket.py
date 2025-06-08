@@ -34,7 +34,7 @@ async def websocket_endpoint(websocket: WebSocket):
         if transcript_buffer:
             print(f"✅ Processing buffered transcript: {transcript_buffer}")
             if llm_manager:
-                answer = await llm_manager.get_ai_answer(transcript_buffer, onboarding_context)
+                answer = await llm_manager.get_ai_answer(transcript_buffer)
                 await send_json(websocket, "ai_answer", {"answer": answer})
                 print(f"🤖 AI ANSWER: {answer}")
             else:
@@ -81,7 +81,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 
                 if is_final:
                     async def delayed_processing():
-                        await asyncio.sleep(1.2)
+                        await asyncio.sleep(0.6)
                         await process_buffered_transcript()
                     
                     buffer_timer = asyncio.create_task(delayed_processing())
@@ -90,8 +90,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Handle candidate response when not processing all speakers
                 candidate_response = transcript
                 print(f"👤 CANDIDATE (FINAL): {candidate_response}")
-                if llm_manager:
-                    llm_manager.process_candidate_response(candidate_response)
+                llm_manager.process_candidate_response(candidate_response)
                 
         except WebSocketDisconnect:
             print("🔌 Client disconnected while sending transcript/answer")
@@ -141,6 +140,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         api_key=selected_provider.get("apiKey"),
                         model_name=provider_config.get("model")
                     )
+                    
+                    # 🔒 INITIALIZE PERSISTENT CONTEXT - This ensures candidate info is always available
+                    llm_manager.initialize_candidate_context(onboarding_context)
                     
                     # Log the context we received for debugging
                     print(f"📋 Interview context loaded:")
