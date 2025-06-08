@@ -406,6 +406,29 @@ window.setMarkdownSpeed = (speed) => {
     console.log(`📝 Markdown element speed set to ${speed}ms`);
 };
 
+// Process All Speakers Configuration
+window.setProcessAllSpeakers = (enabled) => {
+    // This function will be fully implemented in main.js where the socket is managed
+    if (typeof window.sendSocketMessage === 'function') {
+        window.sendSocketMessage('config_update', {
+            processAllSpeakers: enabled
+        });
+        console.log(`🎯 Process All Speakers config sent: ${enabled}`);
+    } else {
+        console.warn('sendSocketMessage not defined yet. Make sure it is globally available.');
+    }
+};
+
+window.enableAllSpeakers = () => {
+    window.setProcessAllSpeakers(true);
+    console.log('🎯 All speakers mode activated - AI will respond to everyone');
+};
+
+window.disableAllSpeakers = () => {
+    window.setProcessAllSpeakers(false);
+    console.log('🎯 Interviewer-only mode activated - AI will only respond to interviewer');
+};
+
 // Smart scroll controls
 window.forceScrollToBottom = () => {
     if (window.liveInterviewUI) {

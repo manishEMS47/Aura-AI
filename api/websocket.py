@@ -21,7 +21,10 @@ async def websocket_endpoint(websocket: WebSocket):
     llm_manager = None
     
     # --- State Management ---
-    session_state = {"is_muted": False}
+    session_state = {
+        "is_muted": False,
+        "process_all_speakers": True  # Default enabled as requested
+    }
     transcript_buffer = ""
     buffer_timer = None
 
@@ -48,11 +51,24 @@ async def websocket_endpoint(websocket: WebSocket):
             speaker = data.get('speaker')
 
             # --- Mute-Aware Speaker Logic ---
-            # If muted, treat all speakers as the interviewer (speaker 0)
-            effective_speaker = 0 if session_state["is_muted"] else speaker
+            # --- Enhanced Mute-Aware Speaker Logic ---
+            if session_state["is_muted"]:
+                # When muted, treat all speakers as interviewer
+                should_process = True
+                speaker_label = "Interviewer"
+            elif session_state["process_all_speakers"]:
+                # When process all speakers enabled, process everyone
+                should_process = True
+                speaker_label = f"Speaker {speaker}" if speaker is not None else "Unknown Speaker"
+            else:
+                # Legacy behavior - only process speaker 0 (interviewer)
+                should_process = (speaker == 0)
+                speaker_label = "Interviewer"
 
-            if transcript and effective_speaker == 0:
-                transcript_buffer += transcript + " "
+            if transcript and should_process:
+                # Add speaker-labeled transcript to buffer
+                labeled_transcript = f"{speaker_label}: {transcript}"
+                transcript_buffer += labeled_transcript + " "
                 
                 if buffer_timer and not buffer_timer.done():
                     buffer_timer.cancel()
@@ -64,7 +80,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     
                     buffer_timer = asyncio.create_task(delayed_processing())
 
-            elif is_final and effective_speaker == 1 and transcript:
+            elif is_final and not should_process and transcript:
+                # Handle candidate response when not processing all speakers
                 candidate_response = transcript
                 print(f"👤 CANDIDATE (FINAL): {candidate_response}")
                 if llm_manager:
@@ -92,7 +109,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     payload = data.get('payload', {})
                     provider_config = payload.get('aiProvider')
                     onboarding_context = payload.get('onboardingData', {})
-                    session_state["is_muted"] = payload.get('is_muted', False) # Get initial mute state
+                    session_state["is_muted"] = payload.get('is_muted', False)
+                    session_state["process_all_speakers"] = payload.get('process_all_speakers', True)
 
                     if not provider_config:
                         print("❌ Cannot start interview: AI provider not selected.")
@@ -126,6 +144,11 @@ async def websocket_endpoint(websocket: WebSocket):
                     
                     dg_manager = DeepgramManager(on_transcript)
                     await dg_manager.start()
+                elif data['type'] == 'config_update':
+                    payload = data.get('payload', {})
+                    if 'processAllSpeakers' in payload:
+                        session_state["process_all_speakers"] = payload['processAllSpeakers']
+                        print(f"🎯 Process All Speakers config updated: {session_state['process_all_speakers']}")
                 elif data['type'] == 'audio_chunk':
                     if dg_manager:
                         payload = data.get('payload', {})

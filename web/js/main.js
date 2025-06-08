@@ -269,6 +269,7 @@ async function startInterview() {
         aiProvider: appState.selectedProvider,
         onboardingData: appState.onboardingData,
         is_muted: isMicrophoneMuted(), // Send initial mute state
+        process_all_speakers: true, // Default enabled as per plan
     });
 }
 
@@ -373,6 +374,7 @@ window.toggleMicrophoneMute = toggleMicrophoneMute;
 window.setMicrophoneMute = setMicrophoneMute;
 window.isMicrophoneMuted = isMicrophoneMuted;
 window.getAudioProcessingMode = getAudioProcessingMode;
+window.sendSocketMessage = sendSocketMessage; // Expose for global config
 
 // --- Developer Shortcuts ---
 function setupDeveloperShortcuts() {
