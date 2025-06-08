@@ -1,4 +1,11 @@
-import { setupMicrophone, startAudioProcessing, stopAudioProcessing } from './audio_handler.js';
+import { 
+    setupMicrophone, 
+    startAudioProcessing, 
+    stopAudioProcessing, 
+    toggleMicrophoneMute, 
+    setMicrophoneMute, 
+    isMicrophoneMuted 
+} from './audio_handler.js';
 import { autofillForTesting } from './dev.js';
 import { loadConfig, isDev, devLog, devWarn, devError } from './config.js';
 import liveInterviewUI from './live-interview.js';
@@ -258,8 +265,11 @@ async function endInterview() {
     switchView('onboarding');
 }
 
-// Make endInterview globally accessible for the live UI
+// Make functions globally accessible for the live UI
 window.endInterview = endInterview;
+window.toggleMicrophoneMute = toggleMicrophoneMute;
+window.setMicrophoneMute = setMicrophoneMute;
+window.isMicrophoneMuted = isMicrophoneMuted;
 
 // --- Event Listeners ---
 proceedButton.addEventListener('click', handleOnboarding);

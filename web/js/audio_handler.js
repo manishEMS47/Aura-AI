@@ -7,6 +7,8 @@ import { devLog, devError } from './config.js';
 let audioContext = null;
 let micStream = null;
 let systemStream = null;
+let isMuted = false;
+let micGainNode = null;
 
 /**
  * Requests permission to use the microphone and populates the dropdown.
@@ -75,11 +77,19 @@ export async function startAudioProcessing(micId, onAudioData) {
             onAudioData(audioData, speakerHint);
         };
 
-        // 4. Connect both sources to the mixed processor
+        // 4. Connect both sources to the mixed processor with mute control
         const micSource = audioContext.createMediaStreamSource(micStream);
         const systemSource = audioContext.createMediaStreamSource(systemStream);
         
-        micSource.connect(mixedProcessor);
+        // Create gain node for microphone muting
+        micGainNode = audioContext.createGain();
+        micGainNode.gain.value = isMuted ? 0 : 1;
+        
+        // Connect mic through gain node for mute control
+        micSource.connect(micGainNode);
+        micGainNode.connect(mixedProcessor);
+        
+        // System audio connects directly (we don't want to mute interviewer)
         systemSource.connect(mixedProcessor);
 
         // The video track from getDisplayMedia is not needed.
@@ -93,6 +103,34 @@ export async function startAudioProcessing(micId, onAudioData) {
         stopAudioProcessing();
         return false;
     }
+}
+
+/**
+ * Mute or unmute the microphone input to the app
+ * @param {boolean} mute - True to mute, false to unmute
+ */
+export function setMicrophoneMute(mute) {
+    isMuted = mute;
+    if (micGainNode) {
+        // Smooth transition to avoid audio pops
+        micGainNode.gain.setTargetAtTime(mute ? 0 : 1, audioContext.currentTime, 0.1);
+        devLog(`🎤 Microphone ${mute ? 'muted' : 'unmuted'} (app-level only)`);
+    }
+    return isMuted;
+}
+
+/**
+ * Get current mute state
+ */
+export function isMicrophoneMuted() {
+    return isMuted;
+}
+
+/**
+ * Toggle microphone mute state
+ */
+export function toggleMicrophoneMute() {
+    return setMicrophoneMute(!isMuted);
 }
 
 /**
@@ -112,4 +150,8 @@ export function stopAudioProcessing() {
         audioContext.close();
         audioContext = null;
     }
+    
+    // Reset mute state
+    isMuted = false;
+    micGainNode = null;
 }

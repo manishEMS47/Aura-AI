@@ -93,6 +93,13 @@
     transform: scale(1.2);
 }
 
+.mute-status {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    margin-top: 0.25rem;
+    color: #a0aec0;
+}
+
 @keyframes fadeInSlide {
     from {
         opacity: 0;

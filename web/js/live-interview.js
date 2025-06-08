@@ -32,6 +32,7 @@ class LiveInterviewUI {
         this.conversationStream = document.getElementById('conversation-stream');
         this.activityIndicator = document.getElementById('activity-indicator');
         this.endButton = document.getElementById('end-interview-btn');
+        this.muteButton = document.getElementById('mute-btn');
         this.setupEventListeners();
     }
 
@@ -39,6 +40,12 @@ class LiveInterviewUI {
         if (this.endButton) {
             this.endButton.addEventListener('click', () => {
                 this.endInterview();
+            });
+        }
+        
+        if (this.muteButton) {
+            this.muteButton.addEventListener('click', () => {
+                this.toggleMute();
             });
         }
         
@@ -455,6 +462,27 @@ class LiveInterviewUI {
         this.currentInterviewerElement = null;
         this.currentAIElement = null;
         this.isStreaming = false;
+    }
+
+    // Toggle microphone mute
+    toggleMute() {
+        if (typeof window.toggleMicrophoneMute === 'function') {
+            const isMuted = window.toggleMicrophoneMute();
+            this.updateMuteButton(isMuted);
+        }
+    }
+
+    // Update mute button appearance
+    updateMuteButton(isMuted) {
+        if (this.muteButton) {
+            if (isMuted) {
+                this.muteButton.classList.add('muted');
+                this.muteButton.title = 'Unmute microphone input to app (Alt+M)';
+            } else {
+                this.muteButton.classList.remove('muted');
+                this.muteButton.title = 'Mute microphone input to app (Alt+M)';
+            }
+        }
     }
 
     // End interview
