@@ -4,81 +4,111 @@ export const devData = {
     role: 'Software Engineer',
     focus: 'coding',
     resume: `RITIK
-Full Stack Software Engineer
+Java Backend Developer & Full Stack Engineer
 Contact: +91 9991448771 | ritik135001@gmail.com | Portfolio | LinkedIn | GitHub | VitalBite
 
-________________________________________
 PROFESSIONAL SUMMARY
-Full Stack Developer with 2+ years of experience building scalable web applications and cloud solutions. Proven expertise in JavaScript frameworks (React, Vue, Angular), Python, AWS infrastructure, and AI integration. Track record of delivering high-quality enterprise solutions for clients including Amazon and Innovan. Strong focus on clean code, responsive design, and emerging technologies.
+Java Backend Developer with 2+ years of experience building scalable enterprise applications and cloud solutions. Proven expertise in Java ecosystem (Spring Boot, Spring Framework), RESTful API development, and database management. Strong background in AWS infrastructure, microservices architecture, and full-stack development. Track record of delivering high-quality enterprise solutions for clients including Amazon and Innovan.
 
-________________________________________
 TECHNICAL SKILLS
-- Frontend: JavaScript, TypeScript, React, Vue.js, Angular, HTML5, CSS3, Tailwind CSS
-- Backend: Node.js, Python, Spring Boot, Java, RESTful APIs
-- Cloud & DevOps: AWS (CDK, CloudWatch), Docker, CI/CD, Git
-- Databases: PostgreSQL, MongoDB, MySQL, Oracle DB
-- AI & Modern Tech: OpenAI/Claude/Gemini APIs, PWAs, AI Agents, Prompt Engineering
-- Tools & Methods: Agile, Jira, Confluence, Bitbucket, GitLab, Postman
+Backend & Core:
 
-________________________________________
+Java, Spring Boot, Spring Framework, Spring Security, Spring Data JPA
+RESTful APIs, Microservices Architecture, Web Services (SOAP/REST)
+Maven, Gradle, JUnit, Mockito, TestNG
+
+Databases & Data:
+
+PostgreSQL, MongoDB, MySQL, Oracle DB
+JPA/Hibernate, Database Design, Query Optimization
+Data Modeling, Database Migration, Performance Tuning
+
+Cloud & DevOps:
+
+AWS (CDK, CloudWatch, EC2, RDS, S3), Docker, CI/CD
+Jenkins, Git, GitLab, Bitbucket
+Infrastructure as Code, Monitoring & Logging
+
+Frontend & Full Stack:
+
+JavaScript, TypeScript, React, Vue.js, Angular
+HTML5, CSS3, Tailwind CSS, Responsive Design
+
+Additional Technologies:
+
+AI Integration (OpenAI/Claude/Gemini APIs), Node.js, Python
+Agile Methodologies, Jira, Confluence, Postman
+
+
 PROFESSIONAL EXPERIENCE
 SOFTWARE ENGINEER | TEKsystems Global Services
 September 2022 – Present
-
-Amazon Inc. | AWS Infrastructure Optimization & Code Migration
+Amazon Inc. | AWS Infrastructure Optimization & Java Code Migration
 February 2024 – December 2024
 
-- Streamlined AWS infrastructure using Amazon CDK with TypeScript, improving performance and cost efficiency
-- Configured CloudWatch monitoring and alerts, ensuring 99.9% system availability
-- Collaborated with cross-functional teams to resolve code migration conflicts and optimize resource management
-- Technologies: AWS CDK, TypeScript, CloudWatch, CloudFormation, JAVA
+Streamlined AWS infrastructure using Amazon CDK with TypeScript and Java applications
+Implemented CloudWatch monitoring and alerts for Java microservices, ensuring 99.9% system availability
+Led Java code migration projects, resolving compatibility issues and optimizing performance
+Collaborated with cross-functional teams to optimize resource management and deployment strategies
+Technologies: Java, AWS CDK, TypeScript, CloudWatch, CloudFormation
 
-Innovan | Government Benefits & Eligibility Web Application
+Innovan | Government Benefits & Eligibility Platform (Java Backend Focus)
 April 2023 – January 2024
 
-- Developed critical features for a government benefits platform using Vue.js and Spring Boot
-- Created reusable Vue components with custom directives, mixins, and scoped slots
-- Managed backend infrastructure using Docker, Jenkins, Oracle DB & MongoDB
-- Led sprint refinements and client communications; recognized for high-quality delivery
-- Recognition: Certificate of Appreciation from Innovan & Spot Award from TEKsystems
-- Technologies: Vue.js, Spring Boot, Java, Oracle DB, MongoDB, Docker, Jira
+Developed robust backend services using Spring Boot and Java for government benefits platform
+Designed and implemented RESTful APIs serving critical eligibility and benefits calculation logic
+Architected database layer with Oracle DB and MongoDB integration using Spring Data JPA
+Built microservices architecture with Docker containerization and Jenkins CI/CD pipelines
+Implemented security features using Spring Security for user authentication and authorization
+Led sprint refinements and technical discussions with stakeholders
+Recognition: Certificate of Appreciation from Innovan & Spot Award from TEKsystems
+Technologies: Java, Spring Boot, Spring Security, Spring Data JPA, Oracle DB, MongoDB, Docker, Jenkins
 
-Ruan | Fleet Management Web & Android Application
+Ruan | Fleet Management System Backend Enhancement
 November 2022 – February 2023
 
-- Enhanced fleet management UI using Angular, improving user experience and functionality
-- Conducted API testing with Postman, ensuring reliable front-end/back-end integration
-- Collaborated to identify and resolve bugs, contributing to product stability
-- Recognition: Spot Award from TEKsystems
-- Technologies: Angular, PostgreSQL, Postman, Jira, GitLab
+Enhanced backend APIs for fleet management system, improving data processing efficiency
+Implemented database optimization strategies with PostgreSQL, reducing query response times by 40%
+Developed comprehensive API testing suite using Postman and JUnit
+Collaborated on bug resolution and system stability improvements
+Recognition: Spot Award from TEKsystems
+Technologies: Java, PostgreSQL, RESTful APIs, JUnit, Postman
 
-________________________________________
+
 PROJECTS
-VitalBite | AI-Powered Nutrition Tracker PWA
+VitalBite | AI-Powered Nutrition Tracker with Java Backend
 January 2025 – February 2025
 
-- Developed an AI-powered calorie tracking webapp & PWA with Google Gemini AI
-- Implemented multi-modal inputs (text NLP, image uploads, camera capture) for seamless food logging
-- Engineered full offline capabilities using service workers, IndexedDB, & Background Sync API
-- Built interactive & responsive UI with React 18, TypeScript, Tailwind CSS, and Recharts
-- Live demo: Vitalbite
-- Technologies: React, TypeScript, Google Gemini AI, Supabase, PWA, Tailwind CSS
+Developed full-stack nutrition tracking application with Java Spring Boot backend
+Implemented RESTful API architecture for nutrition data management and AI integration
+Integrated Google Gemini AI with custom Java service layer for intelligent food recognition
+Built comprehensive backend with Supabase integration and real-time data synchronization
+Developed PWA capabilities with offline support and background sync
+Live demo: Vitalbite
+Technologies: Java, Spring Boot, React, TypeScript, Google Gemini AI, Supabase, PostgreSQL
 
-Additional featured projects and can be found on my GitHub
+Additional Projects
 
-________________________________________
+Enterprise Java Applications: Built various Spring Boot microservices with database integration
+API Development: Created scalable RESTful APIs with comprehensive documentation
+Database Projects: Designed and optimized database schemas for high-performance applications
+
+Additional featured projects available on GitHub
+
 EDUCATION
 Bachelor of Technology in Computer Science Engineering
 Chandigarh Group of Colleges, India
 2018 – 2022
 
-________________________________________
-ADDITIONAL SKILLS
-- Open Source: Experienced in exploring and leveraging open source tools and libraries
-- AI Development: Proficient with Cursor and other AI-assisted development tools
-- UI/UX: Strong focus on accessibility standards (WCAG) and responsive design
-- Soft Skills: Client communication, Quick learning, Collaborative approach, Risk mitigation
-- Languages: English (Fluent), Hindi (Native)`,
+ADDITIONAL SKILLS & CERTIFICATIONS
+
+Java Technologies: Expert in Java 8+, Lambda expressions, Streams API, Collections Framework
+Architecture Patterns: MVC, Repository Pattern, Dependency Injection, Design Patterns
+API Development: OpenAPI/Swagger documentation, API versioning, Rate limiting
+Performance: JVM tuning, Memory management, Profiling, Load testing
+Security: OWASP best practices, JWT, OAuth2, Data encryption
+Soft Skills: Technical leadership, Client communication, Code reviews, Mentoring
+Languages: English (Fluent), Hindi (Native)`,
     objectives: `About the job
 Job Title: AI/ML Development Engineer
 Company: Nucleus Institute Corp.

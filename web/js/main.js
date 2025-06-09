@@ -381,7 +381,10 @@ function connectWebSocket() {
                 const errorInfo = data.payload.error_info;
                 const fallbackInfo = data.payload.fallback_info;
                 
-                liveInterviewUI.addAIResponse(answer, {
+                // Filter out thinking content before displaying
+                const filteredAnswer = filterThinkingContent(answer);
+                
+                liveInterviewUI.addAIResponse(filteredAnswer, {
                     preset: presetUsed,
                     success: success,
                     error: errorInfo,
@@ -430,7 +433,11 @@ function connectWebSocket() {
                 // Display analysis in conversation (single source of truth)
                 if (window.liveInterviewUI) {
                     console.log('📺 Displaying vision analysis in conversation');
-                    liveInterviewUI.addVisionAnalysis(result.analysis, {
+                    
+                    // Filter out thinking content from vision analysis
+                    const filteredAnalysis = filterThinkingContent(result.analysis);
+                    
+                    liveInterviewUI.addVisionAnalysis(filteredAnalysis, {
                         screenshotCount: result.screenshot_count,
                         model: result.metadata.model,
                         provider: result.metadata.provider,
@@ -1130,4 +1137,20 @@ function setupPresetHotkeys() {
 function isLiveInterviewActive() {
     const currentView = document.querySelector('.view.active');
     return currentView && currentView.id === 'live-view';
+}
+
+// Filter function to remove thinking content from AI responses
+function filterThinkingContent(content) {
+    if (!content || typeof content !== 'string') {
+        return content;
+    }
+    
+    // Remove content between <think> and </think> tags (case insensitive, multiline)
+    const thinkingRegex = /<think\s*>[\s\S]*?<\/think\s*>/gi;
+    let filteredContent = content.replace(thinkingRegex, '');
+    
+    // Clean up any extra whitespace or newlines left behind
+    filteredContent = filteredContent.replace(/\n\s*\n\s*\n/g, '\n\n').trim();
+    
+    return filteredContent;
 }

@@ -89,8 +89,8 @@ class LLMManager:
                 self.client.chat.completions.create(
                     messages=[{"role": "user", "content": prompt}],
                     model=self.model_name,
-                    temperature=0.5,
-                    top_p=0.8,
+                    temperature=0.4,
+                    top_p=0.9,
                     max_tokens=5000  # Set reasonable limit
                 ),
                 timeout=35.0  # 30 second timeout

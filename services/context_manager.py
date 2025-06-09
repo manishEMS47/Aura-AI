@@ -1,5 +1,20 @@
 from datetime import datetime
 from core.config import settings
+import re
+
+def filter_thinking_content(content: str) -> str:
+    """Filter out thinking content enclosed in <think> tags from AI responses."""
+    if not content or not isinstance(content, str):
+        return content
+    
+    # Remove content between <think> and </think> tags (case insensitive, multiline)
+    thinking_regex = r'<think\s*>[\s\S]*?</think\s*>'
+    filtered_content = re.sub(thinking_regex, '', content, flags=re.IGNORECASE)
+    
+    # Clean up any extra whitespace or newlines left behind
+    filtered_content = re.sub(r'\n\s*\n\s*\n', '\n\n', filtered_content).strip()
+    
+    return filtered_content
 
 class PersistentContextManager:
     """
@@ -37,10 +52,14 @@ class PersistentContextManager:
     
     def add_conversation_exchange(self, interviewer_question: str, candidate_response: str = None, ai_response: str = None):
         """Add conversation exchange - limited to MAX_CONVERSATION_HISTORY most recent"""
+        
+        # Filter thinking content from AI response
+        filtered_ai_response = filter_thinking_content(ai_response) if ai_response else ai_response
+        
         exchange = {
             'interviewer_question': interviewer_question,
             'candidate_response': candidate_response,
-            'ai_response': ai_response,
+            'ai_response': filtered_ai_response,
             'timestamp': datetime.now().isoformat()
         }
         
@@ -49,7 +68,7 @@ class PersistentContextManager:
             self.conversation_history[-1]['candidate_response'] = candidate_response
         # If we are only getting an AI response, add it to the last exchange.
         elif interviewer_question is None and ai_response and self.conversation_history:
-            self.conversation_history[-1]['ai_response'] = ai_response
+            self.conversation_history[-1]['ai_response'] = filtered_ai_response
         else:
             self.conversation_history.append(exchange)
 
@@ -64,15 +83,18 @@ class PersistentContextManager:
         if response_type == "vision":
             ai_response = f"[VISION ANALYSIS] {ai_response}"
         
+        # Filter out thinking content
+        filtered_ai_response = filter_thinking_content(ai_response)
+        
         # Add to the last exchange if it exists, otherwise create a new one
         if self.conversation_history:
-            self.conversation_history[-1]['ai_response'] = ai_response
+            self.conversation_history[-1]['ai_response'] = filtered_ai_response
         else:
             # Create a new exchange with just the AI response
             exchange = {
                 'interviewer_question': None,
                 'candidate_response': None,
-                'ai_response': ai_response,
+                'ai_response': filtered_ai_response,
                 'timestamp': datetime.now().isoformat()
             }
             self.conversation_history.append(exchange)
