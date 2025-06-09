@@ -364,7 +364,7 @@
     line-height: 1.6 !important;
 }
 
-.message .streaming-text > * {
+.message .streaming-text > *:not(h1):not(h2):not(h3):not(h4):not(h5):not(h6) {
     margin-top: 0 !important;
     margin-bottom: 0 !important;
 }
@@ -670,4 +670,134 @@
     padding: 0.2rem 0.4rem;
     border-radius: 4px;
     font-weight: 500;
+}
+
+/* Heading spacing fixes */
+.message h1, .message h2, .message h3, .message h4, .message h5, .message h6,
+.streaming-text h1, .streaming-text h2, .streaming-text h3, .streaming-text h4, .streaming-text h5, .streaming-text h6 {
+    margin-top: 1rem !important;
+    margin-bottom: 0.6rem !important;
+    line-height: 1.3;
+    font-weight: 600;
+}
+
+/* First heading in a message should have less top margin */
+.message h1:first-child, .message h2:first-child, .message h3:first-child, 
+.message h4:first-child, .message h5:first-child, .message h6:first-child,
+.streaming-text h1:first-child, .streaming-text h2:first-child, .streaming-text h3:first-child,
+.streaming-text h4:first-child, .streaming-text h5:first-child, .streaming-text h6:first-child {
+    margin-top: 0.3rem !important;
+}
+
+/* Last heading in a message should have less bottom margin */
+.message h1:last-child, .message h2:last-child, .message h3:last-child,
+.message h4:last-child, .message h5:last-child, .message h6:last-child,
+.streaming-text h1:last-child, .streaming-text h2:last-child, .streaming-text h3:last-child,
+.streaming-text h4:last-child, .streaming-text h5:last-child, .streaming-text h6:last-child {
+    margin-bottom: 0.3rem !important;
+}
+
+/* Specific heading sizes and spacing */
+.message h1, .streaming-text h1 {
+    font-size: 1.5rem;
+    margin-top: 1.3rem !important;
+    margin-bottom: 0.7rem !important;
+}
+
+.message h2, .streaming-text h2 {
+    font-size: 1.3rem;
+    margin-top: 1.2rem !important;
+    margin-bottom: 0.6rem !important;
+}
+
+.message h3, .streaming-text h3 {
+    font-size: 1.1rem;
+    margin-top: 1rem !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.message h4, .streaming-text h4 {
+    font-size: 1rem;
+    margin-top: 0.9rem !important;
+    margin-bottom: 0.4rem !important;
+}
+
+.message h5, .streaming-text h5 {
+    font-size: 0.95rem;
+    margin-top: 0.8rem !important;
+    margin-bottom: 0.4rem !important;
+}
+
+.message h6, .streaming-text h6 {
+    font-size: 0.9rem;
+    margin-top: 0.7rem !important;
+    margin-bottom: 0.3rem !important;
+}
+
+/* Responsive heading adjustments */
+@media (max-width: 768px) {
+    .message h1, .streaming-text h1 {
+        font-size: 1.3rem;
+        margin-top: 1.5rem !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    .message h2, .streaming-text h2 {
+        font-size: 1.2rem;
+        margin-top: 1.3rem !important;
+        margin-bottom: 0.8rem !important;
+    }
+    
+    .message h3, .streaming-text h3 {
+        font-size: 1.05rem;
+        margin-top: 1.2rem !important;
+        margin-bottom: 0.7rem !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .message h1, .streaming-text h1 {
+        font-size: 1.2rem;
+        margin-top: 1.2rem !important;
+        margin-bottom: 0.8rem !important;
+    }
+    
+    .message h2, .streaming-text h2 {
+        font-size: 1.1rem;
+        margin-top: 1rem !important;
+        margin-bottom: 0.7rem !important;
+    }
+    
+    .message h3, .streaming-text h3 {
+        font-size: 1rem;
+        margin-top: 1rem !important;
+        margin-bottom: 0.6rem !important;
+    }
+}
+
+/* Additional spacing for content around headings */
+.message p, .streaming-text p {
+    margin: 0.5rem 0 !important;
+    line-height: 1.6;
+}
+
+.message ul, .message ol, .streaming-text ul, .streaming-text ol {
+    margin: 0.5rem 0 !important;
+    padding-left: 1.5rem;
+}
+
+.message li, .streaming-text li {
+    margin: 0.2rem 0 !important;
+    line-height: 1.5;
+}
+
+/* Ensure proper spacing between headings and adjacent content */
+.message h1 + p, .message h2 + p, .message h3 + p, .message h4 + p, .message h5 + p, .message h6 + p,
+.streaming-text h1 + p, .streaming-text h2 + p, .streaming-text h3 + p, .streaming-text h4 + p, .streaming-text h5 + p, .streaming-text h6 + p {
+    margin-top: 0 !important;
+}
+
+.message p + h1, .message p + h2, .message p + h3, .message p + h4, .message p + h5, .message p + h6,
+.streaming-text p + h1, .streaming-text p + h2, .streaming-text p + h3, .streaming-text p + h4, .streaming-text p + h5, .streaming-text p + h6 {
+    margin-top: 1.3rem !important;
 } 
