@@ -31,6 +31,8 @@ class GlobalCommandMonitor:
         self.websocket_manager = None
         self.startup_time = time.time()
         self.startup_delay = 5  # Ignore commands for first 5 seconds after startup
+        self.last_processed_command = None
+        self.command_cooldown = 0.5  # 500ms cooldown between same commands
         
     def set_websocket_manager(self, ws_manager):
         """Set the websocket manager for sending commands"""
@@ -71,13 +73,21 @@ class GlobalCommandMonitor:
                             with open(self.command_file, 'r') as f:
                                 command_data = json.load(f)
                             
-                            self._process_command(command_data)
+                            # Process the command
+                            if self._process_command(command_data):
+                                # Clean up the command file after successful processing
+                                try:
+                                    os.remove(self.command_file)
+                                    print(f"🧹 Cleaned up command file after processing")
+                                except Exception as cleanup_error:
+                                    # Don't fail if cleanup fails
+                                    pass
                             
                         except (json.JSONDecodeError, IOError) as e:
                             # Ignore file read errors (file might be being written)
                             pass
                             
-                time.sleep(0.1)  # Check every 100ms
+                time.sleep(0.2)  # Check every 200ms (reduced frequency)
                 
             except Exception as e:
                 print(f"❌ Error in command monitor: {e}")
@@ -87,29 +97,59 @@ class GlobalCommandMonitor:
         """Process a command from the global hotkey"""
         command = command_data.get('command', '')
         source = command_data.get('source', '')
+        timestamp_str = command_data.get('timestamp', '')
         
         if source != 'global_hotkey':
-            return  # Only process global hotkey commands
+            return False  # Only process global hotkey commands
         
         # Ignore commands during startup to prevent processing old/accidental commands
         if time.time() - self.startup_time < self.startup_delay:
             print(f"🎮 Ignoring global command during startup: {command}")
-            return
+            return False
+        
+        # Create a unique command identifier for deduplication
+        command_id = f"{command}_{command_data.get('level', '')}_{command_data.get('preset_key', '')}"
+        current_time = time.time()
+        
+        # Check for duplicate commands within cooldown period
+        if (self.last_processed_command and 
+            self.last_processed_command['id'] == command_id and 
+            current_time - self.last_processed_command['time'] < self.command_cooldown):
+            print(f"🎮 Ignoring duplicate command within cooldown: {command}")
+            return False
+        
+        # Update last processed command
+        self.last_processed_command = {
+            'id': command_id,
+            'time': current_time,
+            'command': command
+        }
             
         print(f"🎮 Processing global command: {command}")
         
         # Execute the command by sending it to the browser
-        if command == 'toggle_vision_mode':
-            self._execute_browser_command('if (window.toggleVisionMode) { window.toggleVisionMode(); } else { console.warn("toggleVisionMode not available"); }')
-        elif command == 'capture_screenshot':
-            self._execute_browser_command('if (window.captureScreenshot) { window.captureScreenshot(); } else { console.warn("captureScreenshot not available"); }')
-        elif command == 'process_screenshots':
-            self._execute_browser_command('if (window.processScreenshots) { window.processScreenshots(); } else { console.warn("processScreenshots not available"); }')
-        elif command == 'switch_preset':
-            preset_key = command_data.get('preset_key', 'primary')
-            self._execute_browser_command(f'if (window.switchPreset) {{ window.switchPreset("{preset_key}"); }} else {{ console.warn("switchPreset not available"); }}')
-        else:
-            print(f"⚠️ Unknown global command: {command}")
+        try:
+            if command == 'toggle_vision_mode':
+                self._execute_browser_command('if (window.toggleVisionMode) { window.toggleVisionMode(); } else { console.warn("toggleVisionMode not available"); }')
+            elif command == 'capture_screenshot':
+                self._execute_browser_command('if (window.captureScreenshot) { window.captureScreenshot(); } else { console.warn("captureScreenshot not available"); }')
+            elif command == 'process_screenshots':
+                self._execute_browser_command('if (window.processScreenshots) { window.processScreenshots(); } else { console.warn("processScreenshots not available"); }')
+            elif command == 'switch_preset':
+                preset_key = command_data.get('preset_key', 'primary')
+                self._execute_browser_command(f'if (window.switchPreset) {{ window.switchPreset("{preset_key}"); }} else {{ console.warn("switchPreset not available"); }}')
+            elif command == 'set_transparency':
+                transparency_level = command_data.get('level', 'opaque')
+                self._execute_browser_command(f'if (window.setTransparency) {{ window.setTransparency("{transparency_level}"); }} else {{ console.warn("setTransparency not available"); }}')
+            else:
+                print(f"⚠️ Unknown global command: {command}")
+                return False
+                
+            return True  # Command processed successfully
+            
+        except Exception as e:
+            print(f"❌ Error executing global command: {e}")
+            return False
             
     def _execute_browser_command(self, js_code):
         """Execute JavaScript code in the browser"""

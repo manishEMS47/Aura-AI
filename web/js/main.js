@@ -715,6 +715,68 @@ function switchPreset(presetKey) {
     }
 }
 
+// --- Transparency Functions ---
+async function setTransparency(level) {
+    console.log(`🎮 setTransparency called: ${level} (could be from global hotkey)`);
+    
+    try {
+        let endpoint = '';
+        let opacity = '';
+        
+        switch(level) {
+            case 'transparent':
+                endpoint = '/api/transparency/presets/transparent';
+                opacity = '40%';
+                break;
+            case 'semi':
+                endpoint = '/api/transparency/presets/semi-transparent';
+                opacity = '70%';
+                break;
+            case 'opaque':
+                endpoint = '/api/transparency/presets/opaque';
+                opacity = '100%';
+                break;
+            default:
+                console.warn(`⚠️ Unknown transparency level: ${level}`);
+                return false;
+        }
+        
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            console.log(`✅ Transparency set to ${opacity} globally`);
+            
+            // Show notification if available
+            if (window.presetManager) {
+                presetManager.showSwitchNotification({
+                    message: `Window transparency: ${opacity}`,
+                    type: 'transparency'
+                });
+            }
+            
+            devLog(`🔍 Global transparency set to: ${opacity}`);
+            return true;
+        } else {
+            console.error('❌ Failed to set transparency:', result);
+            return false;
+        }
+        
+    } catch (error) {
+        console.error('❌ Error setting transparency:', error);
+        
+        if (window.presetManager) {
+            presetManager.showErrorNotification('Failed to set window transparency');
+        }
+        
+        return false;
+    }
+}
+
 function getSystemStatus() {
     if (appState.socket && appState.socket.readyState === WebSocket.OPEN) {
         sendSocketMessage('get_system_status', {});
@@ -730,8 +792,19 @@ window.getScreenVideoTrack = getScreenVideoTrack;
 window.isScreenSharingAvailable = isScreenSharingAvailable;
 
 // --- Vision Mode Functions ---
+let lastVisionToggleTime = 0;
+const visionToggleCooldown = 500; // 500ms cooldown
+
 function toggleVisionMode() {
     console.log('🎮 toggleVisionMode called (could be from global hotkey)');
+    
+    // Debounce rapid calls
+    const now = Date.now();
+    if (now - lastVisionToggleTime < visionToggleCooldown) {
+        console.log('🎮 Ignoring rapid vision mode toggle (debounced)');
+        return false;
+    }
+    lastVisionToggleTime = now;
     
     // Check if we're in interview mode
     if (!isLiveInterviewActive()) {
@@ -789,8 +862,19 @@ function toggleVisionMode() {
     return appState.visionMode.isActive;
 }
 
+let lastScreenshotTime = 0;
+const screenshotCooldown = 300; // 300ms cooldown for screenshots
+
 async function captureScreenshot() {
     console.log('🎮 captureScreenshot called (could be from global hotkey)');
+    
+    // Debounce rapid calls
+    const now = Date.now();
+    if (now - lastScreenshotTime < screenshotCooldown) {
+        console.log('🎮 Ignoring rapid screenshot capture (debounced)');
+        return false;
+    }
+    lastScreenshotTime = now;
     
     // Check if we're in interview mode
     if (!isLiveInterviewActive()) {
@@ -850,6 +934,9 @@ window.toggleVisionMode = toggleVisionMode;
 window.captureScreenshot = captureScreenshot;
 window.processScreenshots = processScreenshots;
 window.sendSocketMessage = sendSocketMessage;
+
+// Make transparency function globally accessible
+window.setTransparency = setTransparency;
 
 // --- Event Listeners ---
 proceedButton.addEventListener('click', handleOnboarding);

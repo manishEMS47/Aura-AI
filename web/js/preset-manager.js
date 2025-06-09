@@ -172,6 +172,10 @@ class PresetManager {
                     border-left: 4px solid #ed8936;
                 }
                 
+                .notification-content.info {
+                    border-left: 4px solid #4299e1;
+                }
+                
                 .notification-title {
                     font-size: 14px;
                     font-weight: 600;
@@ -298,6 +302,13 @@ class PresetManager {
     }
     
     showSwitchNotification(switchData) {
+        // Handle transparency notifications
+        if (switchData.type === 'transparency') {
+            this.showNotification('🔍 Transparency Changed', switchData.message, '', 'info');
+            return;
+        }
+        
+        // Handle preset switching notifications
         const isAutoSelected = switchData.auto_selected || false;
         const currentPreset = switchData.current_preset || {};
         const previousPreset = switchData.previous_preset || '';

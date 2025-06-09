@@ -700,6 +700,18 @@ class WindowManager:
             """Auto-select best available AI preset (Alt+E)"""
             self.send_preset_switch_signal("auto")
 
+        def on_transparency_transparent():
+            """Set window to transparent (40% opacity) - Alt+1"""
+            self.send_transparency_command("transparent")
+
+        def on_transparency_semi():
+            """Set window to semi-transparent (70% opacity) - Alt+2"""
+            self.send_transparency_command("semi")
+
+        def on_transparency_opaque():
+            """Set window to opaque (100% opacity) - Alt+3"""
+            self.send_transparency_command("opaque")
+
         hotkey_map = {
             '<alt>+x': on_toggle_ghost,
             '<alt>+z': on_hide_show,
@@ -709,6 +721,9 @@ class WindowManager:
             '<alt>+q': on_switch_primary,      # Switch to primary preset
             '<alt>+w': on_switch_secondary,    # Switch to secondary preset  
             '<alt>+e': on_auto_select,         # Auto-select best preset
+            '<alt>+1': on_transparency_transparent,  # 40% opacity (transparent)
+            '<alt>+2': on_transparency_semi,         # 70% opacity (semi-transparent)
+            '<alt>+3': on_transparency_opaque,       # 100% opacity (opaque)
         }
         
         with keyboard.GlobalHotKeys(hotkey_map) as h:
@@ -741,6 +756,20 @@ class WindowManager:
         except Exception as e:
             print(f"❌ Error sending vision command: {e}")
 
+    def send_transparency_command(self, level: str):
+        """Send transparency command to the application"""
+        try:
+            from datetime import datetime
+            print(f"🔍 Global hotkey triggered: set_transparency_{level}")
+            self._write_command_file({
+                "command": "set_transparency",
+                "level": level,
+                "timestamp": datetime.now().isoformat(),
+                "source": "global_hotkey"
+            })
+        except Exception as e:
+            print(f"❌ Error sending transparency command: {e}")
+
     def _write_command_file(self, command_data: dict):
         """Write command to temp file for inter-process communication"""
         import tempfile
@@ -771,6 +800,9 @@ class WindowManager:
         print("   Alt+Q: Switch to primary AI preset")
         print("   Alt+W: Switch to secondary AI preset")
         print("   Alt+E: Auto-select best AI preset")
+        print("   Alt+1: Set transparent (40% opacity)")
+        print("   Alt+2: Set semi-transparent (70% opacity)")
+        print("   Alt+3: Set opaque (100% opacity)")
         
         # Ensure we have the handle before starting
         if not self.hwnd:
