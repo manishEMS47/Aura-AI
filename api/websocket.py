@@ -236,8 +236,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         )
                         print("✅ Vision service configured with selected providers")
                         
-                        # Start Deepgram manager
-                        dg_manager = DeepgramManager(on_transcript)
+                        # Start Deepgram manager with user's programming languages for better keyterm accuracy
+                        user_languages = onboarding_context.get('selectedLanguages', [])
+                        dg_manager = DeepgramManager(on_transcript, user_languages)
                         await dg_manager.start()
                         
                     except Exception as e:

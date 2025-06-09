@@ -43,8 +43,8 @@ function switchView(targetView) {
 
 function handleOnboarding() {
     if (stateManager.handleOnboarding()) {
-        switchView('preflight');
-        runPreFlightChecks();
+    switchView('preflight');
+    runPreFlightChecks();
     }
 }
 
@@ -109,12 +109,12 @@ async function endInterview() {
     
     // Disable hotkeys
     hotkeyManager.setEnabled(false);
-    
+
     // Clear conversation UI
     if (window.liveInterviewUI) {
         liveInterviewUI.clearConversation();
     }
-    
+
     // Comprehensive state clearing
     stateManager.clearInterviewState();
     

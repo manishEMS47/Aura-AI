@@ -358,7 +358,10 @@ export class WebSocketHandler {
         
         const interviewPayload = {
             aiProvider: state.selectedProvider,
-            onboardingData: state.onboardingData,
+            onboardingData: {
+                ...state.onboardingData,
+                selectedLanguages: state.selectedLanguages  // Add selected languages for Deepgram keyterms
+            },
             is_muted: initialMuteStatus.microphone,
             is_universally_muted: initialMuteStatus.universal,
             process_all_speakers: true,
