@@ -938,6 +938,87 @@ window.sendSocketMessage = sendSocketMessage;
 // Make transparency function globally accessible
 window.setTransparency = setTransparency;
 
+// --- Audio Toggle Functions ---
+function toggleMicMute() {
+    console.log('🎮 toggleMicMute called (could be from global hotkey)');
+    
+    // Check if we're in interview mode
+    if (!isLiveInterviewActive()) {
+        console.warn('⚠️ Microphone mute only available during live interview');
+        if (window.presetManager) {
+            presetManager.showErrorNotification('Start the interview first before using microphone controls');
+        } else {
+            alert('Please start the interview before using microphone controls');
+        }
+        return false;
+    }
+    
+    if (window.muteManager) {
+        const currentStatus = muteManager.getMuteStatus();
+        const newMicStatus = !currentStatus.microphone;
+        muteManager.setMicrophoneMute(newMicStatus);
+        
+        const status = newMicStatus ? 'muted' : 'unmuted';
+        console.log(`🎤 Microphone ${status} via global hotkey`);
+        
+        // Show notification if available
+        if (window.presetManager) {
+            presetManager.showSwitchNotification({
+                message: `Microphone ${status}`,
+                type: 'audio'
+            });
+        }
+        
+        devLog(`🎤 Microphone ${status} (global hotkey)`);
+        return true;
+    } else {
+        console.warn('⚠️ Mute manager not available');
+        return false;
+    }
+}
+
+function toggleUniversalMute() {
+    console.log('🎮 toggleUniversalMute called (could be from global hotkey)');
+    
+    // Check if we're in interview mode
+    if (!isLiveInterviewActive()) {
+        console.warn('⚠️ Universal mute only available during live interview');
+        if (window.presetManager) {
+            presetManager.showErrorNotification('Start the interview first before using audio controls');
+        } else {
+            alert('Please start the interview before using audio controls');
+        }
+        return false;
+    }
+    
+    if (window.muteManager) {
+        const currentStatus = muteManager.getMuteStatus();
+        const newUniversalStatus = !currentStatus.universal;
+        muteManager.setUniversalMute(newUniversalStatus);
+        
+        const status = newUniversalStatus ? 'paused' : 'active';
+        console.log(`⏸️ System ${status} via global hotkey`);
+        
+        // Show notification if available
+        if (window.presetManager) {
+            presetManager.showSwitchNotification({
+                message: `System ${status}`,
+                type: 'audio'
+            });
+        }
+        
+        devLog(`⏸️ System ${status} (global hotkey)`);
+        return true;
+    } else {
+        console.warn('⚠️ Mute manager not available');
+        return false;
+    }
+}
+
+// Make audio toggle functions globally accessible
+window.toggleMicMute = toggleMicMute;
+window.toggleUniversalMute = toggleUniversalMute;
+
 // --- Event Listeners ---
 proceedButton.addEventListener('click', handleOnboarding);
 startButton.addEventListener('click', startInterview);

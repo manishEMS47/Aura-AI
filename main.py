@@ -141,6 +141,10 @@ class GlobalCommandMonitor:
             elif command == 'set_transparency':
                 transparency_level = command_data.get('level', 'opaque')
                 self._execute_browser_command(f'if (window.setTransparency) {{ window.setTransparency("{transparency_level}"); }} else {{ console.warn("setTransparency not available"); }}')
+            elif command == 'toggle_mic_mute':
+                self._execute_browser_command('if (window.toggleMicMute) { window.toggleMicMute(); } else { console.warn("toggleMicMute not available"); }')
+            elif command == 'toggle_universal_mute':
+                self._execute_browser_command('if (window.toggleUniversalMute) { window.toggleUniversalMute(); } else { console.warn("toggleUniversalMute not available"); }')
             else:
                 print(f"⚠️ Unknown global command: {command}")
                 return False

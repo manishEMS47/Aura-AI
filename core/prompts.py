@@ -122,10 +122,8 @@ GENERAL APPROACH:
             if exchange.get('candidate_response'):
                 prompt_parts.append(f"           ↳ CANDIDATE: {exchange['candidate_response']}")
             if exchange.get('ai_response'):
-                # Truncate very long AI responses for context (keep first 500 chars)
+                # Include full AI response for complete context
                 ai_response = exchange['ai_response']
-                if len(ai_response) > 500:
-                    ai_response = ai_response[:500] + "... [truncated for context]"
                 prompt_parts.append(f"           ↳ AI ASSISTANT: {ai_response}")
             prompt_parts.append("")
         prompt_parts.append("=" * 100)

@@ -22,7 +22,8 @@ class HotkeyManager {
         // Prevent default browser shortcuts that might interfere
         document.addEventListener('keydown', (e) => {
             // Prevent default browser actions for Alt+[ and Alt+]
-            if (e.altKey && ['[', ']', 'm', 'u'].includes(e.key.toLowerCase())) {
+            // Note: Alt+M and Alt+U are handled by global hotkeys only
+            if (e.altKey && ['[', ']'].includes(e.key.toLowerCase())) {
                 e.preventDefault();
             }
         });
@@ -31,18 +32,8 @@ class HotkeyManager {
     handleKeyDown(event) {
         if (!this.isEnabled) return;
 
-        // Check for Alt+M for microphone mute
-        if (event.altKey && event.key.toLowerCase() === 'm') {
-            this.toggleMicrophoneMute();
-            return;
-        }
-
-        // Check for Alt+U for universal mute/pause
-        if (event.altKey && event.key.toLowerCase() === 'u') {
-            this.toggleUniversalMute();
-            return;
-        }
-
+        // Note: Alt+M and Alt+U are handled by global hotkeys only to prevent conflicts
+        
         // Check for Alt+[ to decrease transparency
         if (event.altKey && event.key === '[') {
             this.decreaseTransparency();
@@ -186,82 +177,7 @@ class HotkeyManager {
         }
     }
 
-
-    toggleMicrophoneMute() {
-        if (!this.isLiveInterviewActive()) {
-            this.showMuteFeedback(false, 'Microphone mute only available in live interview');
-            return;
-        }
-
-        const isMuted = muteManager.toggleMicrophoneMute();
-        this.showMuteFeedback(isMuted);
-        devLog(`🎤 Microphone ${isMuted ? 'muted' : 'unmuted'} via hotkey`);
-    }
-
-    toggleUniversalMute() {
-        if (!this.isLiveInterviewActive()) {
-            this.showUniversalMuteFeedback(false, 'Universal pause only available in live interview');
-            return;
-        }
-        
-        const isPaused = muteManager.toggleUniversalMute();
-        this.showUniversalMuteFeedback(isPaused);
-        devLog(`⏸️ Universal mute ${isPaused ? 'enabled' : 'disabled'} via hotkey`);
-    }
-
-    isLiveInterviewActive() {
-        const currentView = document.querySelector('.view.active');
-        return currentView && currentView.id === 'live-view';
-    }
-
-    showMuteFeedback(isMuted, message = null) {
-        this.removeExistingFeedback();
-        
-        const feedback = document.createElement('div');
-        feedback.id = 'transparency-feedback';
-        
-        if (message) {
-            feedback.innerHTML = `<div class="transparency-feedback">ℹ️ ${message}</div>`;
-        } else {
-            feedback.innerHTML = `
-                <div class="transparency-feedback">
-                    🎤 Microphone ${isMuted ? 'Muted' : 'Unmuted'}
-                    <div class="mute-status">${isMuted ? 'App audio input disabled' : 'App audio input enabled'}</div>
-                </div>`;
-        }
-        
-        document.body.appendChild(feedback);
-        this.autoHideFeedback(feedback);
-    }
-
-    showUniversalMuteFeedback(isPaused, message = null) {
-        this.removeExistingFeedback();
-        
-        const feedback = document.createElement('div');
-        feedback.id = 'transparency-feedback';
-        feedback.className = isPaused ? 'universal-mute-active' : '';
-
-        if (message) {
-            feedback.innerHTML = `<div class="transparency-feedback">ℹ️ ${message}</div>`;
-        } else {
-            feedback.innerHTML = `
-                <div class="transparency-feedback">
-                    ⏸️ System ${isPaused ? 'Paused' : 'Resumed'}
-                    <div class="mute-status">${isPaused ? 'All audio processing is stopped' : 'Audio processing is active'}</div>
-                </div>`;
-        }
-        
-        document.body.appendChild(feedback);
-        this.autoHideFeedback(feedback);
-    }
-
-    autoHideFeedback(element) {
-        setTimeout(() => {
-            if (element.parentNode) {
-                element.remove();
-            }
-        }, 2500);
-    }
+    // Note: Audio toggle methods removed - handled by global hotkeys only
 }
 
 // Create global instance

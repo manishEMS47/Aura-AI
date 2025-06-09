@@ -712,6 +712,14 @@ class WindowManager:
             """Set window to opaque (100% opacity) - Alt+3"""
             self.send_transparency_command("opaque")
 
+        def on_toggle_mic_mute():
+            """Toggle microphone mute (Alt+M)"""
+            self.send_audio_command("toggle_mic_mute")
+
+        def on_toggle_universal_mute():
+            """Toggle universal mute/pause (Alt+U)"""
+            self.send_audio_command("toggle_universal_mute")
+
         hotkey_map = {
             '<alt>+x': on_toggle_ghost,
             '<alt>+z': on_hide_show,
@@ -721,6 +729,8 @@ class WindowManager:
             '<alt>+q': on_switch_primary,      # Switch to primary preset
             '<alt>+w': on_switch_secondary,    # Switch to secondary preset  
             '<alt>+e': on_auto_select,         # Auto-select best preset
+            '<alt>+m': on_toggle_mic_mute,     # Toggle microphone mute
+            '<alt>+u': on_toggle_universal_mute, # Toggle universal mute (pause)
             '<alt>+1': on_transparency_transparent,  # 40% opacity (transparent)
             '<alt>+2': on_transparency_semi,         # 70% opacity (semi-transparent)
             '<alt>+3': on_transparency_opaque,       # 100% opacity (opaque)
@@ -770,6 +780,19 @@ class WindowManager:
         except Exception as e:
             print(f"❌ Error sending transparency command: {e}")
 
+    def send_audio_command(self, command: str):
+        """Send audio-related command to the application"""
+        try:
+            from datetime import datetime
+            print(f"🎤 Global hotkey triggered: {command}")
+            self._write_command_file({
+                "command": command,
+                "timestamp": datetime.now().isoformat(),
+                "source": "global_hotkey"
+            })
+        except Exception as e:
+            print(f"❌ Error sending audio command: {e}")
+
     def _write_command_file(self, command_data: dict):
         """Write command to temp file for inter-process communication"""
         import tempfile
@@ -800,6 +823,8 @@ class WindowManager:
         print("   Alt+Q: Switch to primary AI preset")
         print("   Alt+W: Switch to secondary AI preset")
         print("   Alt+E: Auto-select best AI preset")
+        print("   Alt+M: Toggle microphone mute")
+        print("   Alt+U: Toggle universal mute (pause)")
         print("   Alt+1: Set transparent (40% opacity)")
         print("   Alt+2: Set semi-transparent (70% opacity)")
         print("   Alt+3: Set opaque (100% opacity)")

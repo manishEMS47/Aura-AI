@@ -308,6 +308,16 @@ class PresetManager {
             return;
         }
         
+        // Handle audio control notifications
+        if (switchData.type === 'audio') {
+            let icon = '🎤';
+            if (switchData.message.toLowerCase().includes('system')) {
+                icon = '⏸️';
+            }
+            this.showNotification(`${icon} Audio Control`, switchData.message, '', 'info');
+            return;
+        }
+        
         // Handle preset switching notifications
         const isAutoSelected = switchData.auto_selected || false;
         const currentPreset = switchData.current_preset || {};
