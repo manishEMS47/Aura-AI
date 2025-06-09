@@ -59,8 +59,8 @@ class LLMManager:
             self.error_count += 1
             return False
 
-    async def get_ai_answer(self, question: str) -> Tuple[str, Dict[str, Any]]:
-        """Get AI answer with comprehensive error handling"""
+    async def get_ai_answer(self, question: str, stream_callback=None) -> Tuple[str, Dict[str, Any]]:
+        """Get AI answer with comprehensive error handling and optional streaming"""
         if not self.client:
             return "I'm sorry, the AI service is not available at this time.", {
                 "error": "No client available",
@@ -84,19 +84,57 @@ class LLMManager:
             
             print(f"🎯 Processing with {self.provider_name}-{self.model_name}: '{question[:100]}...'")
             
-            # Make API call with timeout
-            chat_completion = await asyncio.wait_for(
-                self.client.chat.completions.create(
-                    messages=[{"role": "user", "content": prompt}],
-                    model=self.model_name,
-                    temperature=0.4,
-                    top_p=0.9,
-                    max_tokens=5000  # Set reasonable limit
-                ),
-                timeout=35.0  # 30 second timeout
-            )
+            # Determine if streaming is requested
+            use_streaming = stream_callback is not None
             
-            answer = chat_completion.choices[0].message.content.strip()
+            if use_streaming:
+                # Streaming API call for real-time responses
+                full_answer = ""
+                try:
+                    async for chunk in await self.client.chat.completions.create(
+                        messages=[{"role": "user", "content": prompt}],
+                        model=self.model_name,
+                        temperature=0.3,  # Slightly lower for faster, more focused responses
+                        top_p=0.85,       # More focused responses
+                        max_tokens=4000,  # Optimized for speed
+                        stream=True       # Enable streaming
+                    ):
+                        if chunk.choices[0].delta.content:
+                            content_chunk = chunk.choices[0].delta.content
+                            full_answer += content_chunk
+                            # Send chunk to callback immediately
+                            if stream_callback:
+                                await stream_callback(content_chunk, "chunk")
+                
+                    answer = full_answer.strip()
+                except Exception as e:
+                    # If streaming fails, fall back to non-streaming
+                    print(f"⚠️ Streaming failed for {self.provider_name}, falling back to non-streaming: {e}")
+                    chat_completion = await asyncio.wait_for(
+                        self.client.chat.completions.create(
+                            messages=[{"role": "user", "content": prompt}],
+                            model=self.model_name,
+                            temperature=0.3,
+                            top_p=0.85,
+                            max_tokens=4000
+                        ),
+                        timeout=30.0
+                    )
+                    answer = chat_completion.choices[0].message.content.strip()
+            else:
+                # Non-streaming API call (fallback/legacy)
+                chat_completion = await asyncio.wait_for(
+                    self.client.chat.completions.create(
+                        messages=[{"role": "user", "content": prompt}],
+                        model=self.model_name,
+                        temperature=0.3,  # Optimized for speed
+                        top_p=0.85,
+                        max_tokens=4000   # Optimized for speed
+                    ),
+                    timeout=30.0  # Reduced timeout for faster failure detection
+                )
+                
+                answer = chat_completion.choices[0].message.content.strip()
             
             # Add AI response to conversation history
             self.context_manager.add_ai_response(answer, "normal")
@@ -359,15 +397,15 @@ class MultiLLMManager:
             }
         return {"key": "unknown", "provider": "Unknown", "model": "Unknown", "description": "Unknown"}
 
-    async def get_ai_answer(self, question: str) -> Tuple[str, Dict[str, Any]]:
-        """Get AI answer with automatic fallback and error recovery"""
+    async def get_ai_answer(self, question: str, stream_callback=None) -> Tuple[str, Dict[str, Any]]:
+        """Get AI answer with automatic fallback and error recovery, with optional streaming"""
         if not self.providers:
             return "No AI providers are configured.", {"error": "no_providers"}
         
         # Try the active provider first
         if self.active_preset_key in self.providers:
             manager = self.providers[self.active_preset_key]
-            answer, result_info = await manager.get_ai_answer(question)
+            answer, result_info = await manager.get_ai_answer(question, stream_callback)
             
             # If successful, return the answer
             if result_info.get("success"):
@@ -377,13 +415,14 @@ class MultiLLMManager:
             
             print(f"⚠️ Active provider {self.active_preset_key} failed, attempting fallback...")
         
-        # Try fallback providers
+        # Try fallback providers (disable streaming for fallback to avoid confusion)
         for fallback_preset in self.fallback_order:
             if fallback_preset != self.active_preset_key and fallback_preset in self.providers:
                 print(f"🔄 Attempting fallback to {fallback_preset}...")
                 
                 manager = self.providers[fallback_preset]
-                answer, result_info = await manager.get_ai_answer(question)
+                # Don't use streaming for fallback to avoid confusion
+                answer, result_info = await manager.get_ai_answer(question, None)
                 
                 if result_info.get("success"):
                     # Update active preset to the working one

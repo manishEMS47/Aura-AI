@@ -56,7 +56,17 @@ export class WebSocketHandler {
             case 'transcript_update':
                 this.handleTranscriptUpdate(data.payload);
                 break;
+            case 'ai_processing_started':
+                this.handleAiProcessingStarted(data.payload);
+                break;
+            case 'ai_answer_chunk':
+                this.handleAiAnswerChunk(data.payload);
+                break;
+            case 'ai_answer_complete':
+                this.handleAiAnswerComplete(data.payload);
+                break;
             case 'ai_answer':
+                // Legacy support for non-streaming responses
                 this.handleAiAnswer(data.payload);
                 break;
             case 'preset_initialized':
@@ -105,7 +115,42 @@ export class WebSocketHandler {
         }
     }
 
+    handleAiProcessingStarted(payload) {
+        console.log('🚀 AI processing started, preparing for streaming...');
+        
+        if (window.liveInterviewUI) {
+            // Start streaming response immediately
+            liveInterviewUI.startStreamingAIResponse({
+                question: payload.question,
+                timestamp: payload.timestamp
+            });
+        }
+    }
+
+    handleAiAnswerChunk(payload) {
+        if (window.liveInterviewUI) {
+            // Stream chunk to UI immediately
+            liveInterviewUI.appendStreamingChunk(payload.chunk);
+        }
+    }
+
+    handleAiAnswerComplete(payload) {
+        console.log('✅ AI streaming complete');
+        
+        if (window.liveInterviewUI) {
+            // Finalize the streaming response
+            liveInterviewUI.finalizeStreamingResponse({
+                preset: payload.preset_used,
+                success: payload.success,
+                error: payload.error_info,
+                fallback: payload.fallback_info,
+                fullAnswer: payload.answer
+            });
+        }
+    }
+
     handleAiAnswer(payload) {
+        // Legacy handler for non-streaming responses
         if (window.liveInterviewUI) {
             const filteredAnswer = this.filterThinkingContent(payload.answer);
             liveInterviewUI.addAIResponse(filteredAnswer, {

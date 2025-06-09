@@ -1,5 +1,6 @@
 import asyncio
 import json
+from datetime import datetime
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from services.llm_service import MultiLLMManager, verify_provider_connection
 from services.stt_service import verify_deepgram_api_key, DeepgramManager
@@ -40,13 +41,32 @@ async def websocket_endpoint(websocket: WebSocket):
             
             if multi_llm_manager:
                 try:
-                    answer, result_info = await multi_llm_manager.get_ai_answer(aggregated_final_transcript)
+                    # Send AI processing started signal
+                    await send_json(websocket, "ai_processing_started", {
+                        "question": aggregated_final_transcript,
+                        "timestamp": datetime.now().isoformat()
+                    })
                     
-                    # Send response with metadata
+                    # Create streaming callback for real-time response
+                    async def stream_callback(chunk: str, chunk_type: str):
+                        await send_json(websocket, "ai_answer_chunk", {
+                            "chunk": chunk,
+                            "chunk_type": chunk_type,
+                            "timestamp": datetime.now().isoformat()
+                        })
+                    
+                    # Get AI answer with streaming
+                    answer, result_info = await multi_llm_manager.get_ai_answer(
+                        aggregated_final_transcript, 
+                        stream_callback
+                    )
+                    
+                    # Send final response with metadata
                     response_data = {
                         "answer": answer,
                         "preset_used": result_info.get("preset_used", {}),
-                        "success": result_info.get("success", False)
+                        "success": result_info.get("success", False),
+                        "is_final": True
                     }
                     
                     # Include additional info for errors or fallbacks
@@ -63,15 +83,16 @@ async def websocket_endpoint(websocket: WebSocket):
                             "model": result_info.get("model")
                         }
                     
-                    await send_json(websocket, "ai_answer", response_data)
-                    print(f"🤖 AI ANSWER: {answer[:100]}...")
+                    await send_json(websocket, "ai_answer_complete", response_data)
+                    print(f"🤖 AI STREAMING COMPLETE: {answer[:100]}...")
                     
                 except Exception as e:
                     print(f"❌ CRITICAL: Error processing transcript: {e}")
-                    await send_json(websocket, "ai_answer", {
+                    await send_json(websocket, "ai_answer_complete", {
                         "answer": "I'm sorry, there was an error processing your question. Please try again.",
                         "error_info": {"error_type": "processing_error", "message": str(e)},
-                        "success": False
+                        "success": False,
+                        "is_final": True
                     })
             
             # IMPORTANT: Reset the buffer after processing.
@@ -97,7 +118,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     silence_timer.cancel()
                 
                 async def delayed_processing():
-                    await asyncio.sleep(1.3)
+                    await asyncio.sleep(0.8)  # Reduced from 1.3s to 0.8s for faster processing
                     await process_aggregated_transcript() # Fire the processor after silence
                 
                 silence_timer = asyncio.create_task(delayed_processing())

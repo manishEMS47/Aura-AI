@@ -606,6 +606,55 @@ class LiveInterviewUI {
             `;
             document.head.appendChild(style);
         }
+        
+        // Add streaming styles if not present
+        this.addStreamingStyles();
+    }
+
+    addStreamingStyles() {
+        if (!document.getElementById('streaming-response-styles')) {
+            const style = document.createElement('style');
+            style.id = 'streaming-response-styles';
+            style.textContent = `
+                .streaming-indicator {
+                    color: #3b82f6;
+                    font-weight: 500;
+                    animation: pulse 1.5s ease-in-out infinite;
+                }
+                
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.5; }
+                }
+                
+                .response-meta {
+                    font-size: 11px;
+                    margin-top: 8px;
+                    padding: 4px 8px;
+                    border-radius: 3px;
+                    opacity: 0.8;
+                }
+                
+                .response-meta.preset-info {
+                    background: rgba(59, 130, 246, 0.1);
+                    color: #3b82f6;
+                    border-left: 2px solid #3b82f6;
+                }
+                
+                .response-meta.fallback-info {
+                    background: rgba(245, 158, 11, 0.1);
+                    color: #d97706;
+                    border-left: 2px solid #d97706;
+                }
+                
+                .response-meta.error-info {
+                    background: rgba(239, 68, 68, 0.1);
+                    color: #dc2626;
+                    border-left: 2px solid #dc2626;
+                }
+            `;
+            document.head.appendChild(style);
+        }
     }
 
     // Start streaming animation (delegated to streaming module)
@@ -734,6 +783,132 @@ class LiveInterviewUI {
         }
     }
 
+    // Start real-time streaming AI response
+    startStreamingAIResponse(metadata = {}) {
+        console.log('🚀 Starting real-time AI streaming...');
+        
+        // Create AI response element immediately
+        this.currentStreamingElement = this.createMessageElement('', 'ai-response');
+        this.conversationStream.appendChild(this.currentStreamingElement);
+        
+        // Get content div for streaming
+        this.currentStreamingContent = this.currentStreamingElement.querySelector('.streaming-text');
+        
+        // Add streaming indicator
+        this.currentStreamingContent.innerHTML = '<span class="streaming-indicator">🤖💭</span>';
+        
+        // Set scroll mode for real-time streaming
+        this.setScrollMode('ai_streaming', this.currentStreamingElement);
+        
+        // Hide activity indicator
+        this.hideActivity();
+        this.updateEmptyState();
+        
+        console.log('✅ Real-time streaming prepared');
+    }
+
+    // Append streaming chunk immediately
+    appendStreamingChunk(chunk) {
+        if (!this.currentStreamingElement || !this.currentStreamingContent) {
+            console.warn('⚠️ No active streaming element for chunk');
+            return;
+        }
+        
+        // Remove streaming indicator on first chunk
+        const indicator = this.currentStreamingContent.querySelector('.streaming-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
+        
+        // Append chunk immediately (no markdown processing for speed)
+        this.currentStreamingContent.appendChild(document.createTextNode(chunk));
+        
+        // Auto-scroll if user is near bottom
+        if (this.isUserNearBottom()) {
+            this.scrollToBottom();
+        }
+    }
+
+    // Finalize streaming response
+    finalizeStreamingResponse(metadata = {}) {
+        console.log('✅ Finalizing real-time streaming...');
+        
+        if (this.currentStreamingElement) {
+            // Mark as complete
+            this.currentStreamingElement.classList.add('complete');
+            
+            // Final processing of content with markdown
+            if (this.currentStreamingContent && metadata.fullAnswer) {
+                const filteredAnswer = this.filterThinkingContent(metadata.fullAnswer);
+                const finalContent = this.markdownProcessor.process(filteredAnswer);
+                this.currentStreamingContent.innerHTML = finalContent;
+            }
+            
+            // Handle metadata display (preset info, etc.)
+            if (metadata.preset || metadata.fallback || metadata.error) {
+                this.addResponseMetadata(this.currentStreamingElement, metadata);
+            }
+            
+            // Reset scroll mode
+            if (this.isUserNearBottom()) {
+                this.setScrollMode('live_bottom');
+            } else {
+                this.setScrollMode('ai_static');
+            }
+            
+            console.log('🤖 Real-time AI streaming completed');
+        }
+        
+        // Clear streaming references
+        this.currentStreamingElement = null;
+        this.currentStreamingContent = null;
+    }
+
+    // Add response metadata (preset info, errors, etc.)
+    addResponseMetadata(element, metadata) {
+        if (!element) return;
+        
+        let metaHTML = '';
+        
+        if (metadata.preset) {
+            metaHTML += `<div class="response-meta preset-info">
+                📡 ${metadata.preset.description || 'AI Assistant'}
+            </div>`;
+        }
+        
+        if (metadata.fallback && metadata.fallback.fallback_used) {
+            metaHTML += `<div class="response-meta fallback-info">
+                🔄 Switched to backup provider
+            </div>`;
+        }
+        
+        if (metadata.error) {
+            metaHTML += `<div class="response-meta error-info">
+                ⚠️ ${metadata.error.error_type || 'Response error'}
+            </div>`;
+        }
+        
+        if (metaHTML) {
+            element.insertAdjacentHTML('beforeend', metaHTML);
+        }
+    }
+
+    // Filter thinking content helper
+    filterThinkingContent(content) {
+        if (!content || typeof content !== 'string') {
+            return content;
+        }
+        
+        // Remove content between <think> and </think> tags (case insensitive, multiline)
+        const thinkingRegex = /<think\s*>[\s\S]*?<\/think\s*>/gi;
+        let filteredContent = content.replace(thinkingRegex, '');
+        
+        // Clean up any extra whitespace or newlines left behind
+        filteredContent = filteredContent.replace(/\n\s*\n\s*\n/g, '\n\n').trim();
+        
+        return filteredContent;
+    }
+
     // Clear conversation
     clearConversation() {
         if (this.conversationStream) {
@@ -741,6 +916,8 @@ class LiveInterviewUI {
         }
         this.currentInterviewerElement = null;
         this.currentAIElement = null;
+        this.currentStreamingElement = null;
+        this.currentStreamingContent = null;
         this.isStreaming = false;
         this.updateEmptyState();
     }
