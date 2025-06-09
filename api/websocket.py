@@ -1,9 +1,7 @@
 import asyncio
 import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-import json
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from services.llm_service import LLMManager
+from services.llm_service import MultiLLMManager, verify_provider_connection
 from services.stt_service import verify_deepgram_api_key, DeepgramManager
 
 router = APIRouter()
@@ -18,7 +16,7 @@ async def websocket_endpoint(websocket: WebSocket):
     print("🔗 WebSocket connection established")
     
     dg_manager = None
-    llm_manager = None
+    multi_llm_manager = None
     
     # --- State Management ---
     session_state = {
@@ -39,10 +37,41 @@ async def websocket_endpoint(websocket: WebSocket):
         if aggregated_final_transcript:
             print(f"✅ Silence detected. Processing transcript: {aggregated_final_transcript}")
             
-            if llm_manager:
-                answer = await llm_manager.get_ai_answer(aggregated_final_transcript)
-                await send_json(websocket, "ai_answer", {"answer": answer})
-                print(f"🤖 AI ANSWER: {answer}")
+            if multi_llm_manager:
+                try:
+                    answer, result_info = await multi_llm_manager.get_ai_answer(aggregated_final_transcript)
+                    
+                    # Send response with metadata
+                    response_data = {
+                        "answer": answer,
+                        "preset_used": result_info.get("preset_used", {}),
+                        "success": result_info.get("success", False)
+                    }
+                    
+                    # Include additional info for errors or fallbacks
+                    if result_info.get("fallback_used"):
+                        response_data["fallback_info"] = {
+                            "fallback_used": True,
+                            "original_preset": result_info.get("original_preset")
+                        }
+                    
+                    if result_info.get("error"):
+                        response_data["error_info"] = {
+                            "error_type": result_info.get("error"),
+                            "provider": result_info.get("provider"),
+                            "model": result_info.get("model")
+                        }
+                    
+                    await send_json(websocket, "ai_answer", response_data)
+                    print(f"🤖 AI ANSWER: {answer[:100]}...")
+                    
+                except Exception as e:
+                    print(f"❌ CRITICAL: Error processing transcript: {e}")
+                    await send_json(websocket, "ai_answer", {
+                        "answer": "I'm sorry, there was an error processing your question. Please try again.",
+                        "error_info": {"error_type": "processing_error", "message": str(e)},
+                        "success": False
+                    })
             
             # IMPORTANT: Reset the buffer after processing.
             aggregated_final_transcript = ""
@@ -88,8 +117,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 print(f"📝 Appended to aggregate buffer. New buffer: '{aggregated_final_transcript}'")
             elif is_final and not should_process: # Candidate speech
                  print(f"👤 CANDIDATE (FINAL): {transcript}")
-                 if llm_manager:
-                     llm_manager.process_candidate_response(transcript)
+                 if multi_llm_manager:
+                     multi_llm_manager.process_candidate_response(transcript)
 
         except WebSocketDisconnect:
             print("🔌 Client disconnected while sending transcript/answer")
@@ -111,47 +140,72 @@ async def websocket_endpoint(websocket: WebSocket):
                 if data['type'] == 'start_interview':
                     print("🎬 Starting interview session...")
                     payload = data.get('payload', {})
-                    provider_config = payload.get('aiProvider')
+                    primary_provider_config = payload.get('aiProvider')
+                    secondary_provider_config = payload.get('aiSecondaryProvider')
                     onboarding_context = payload.get('onboardingData', {})
                     session_state["is_muted"] = payload.get('is_muted', False)
                     session_state["process_all_speakers"] = payload.get('process_all_speakers', True)
                     session_state["is_universally_muted"] = payload.get('is_universally_muted', False)
 
-                    if not provider_config:
-                        print("❌ Cannot start interview: AI provider not selected.")
-                        await send_json(websocket, "error", {"message": "AI provider not selected."})
+                    if not primary_provider_config:
+                        print("❌ Cannot start interview: Primary AI provider not selected.")
+                        await send_json(websocket, "error", {"message": "Primary AI provider not selected."})
                         return
 
-                    # Load provider details from JSON config
-                    with open("ai_providers.json", "r") as f:
-                        providers = json.load(f)
-                    
-                    selected_provider = next((p for p in providers if p["name"] == provider_config.get("name")), None)
-
-                    if not selected_provider:
-                        print(f"❌ Provider '{provider_config.get('name')}' not found in config.")
-                        return
+                    try:
+                        # Create and configure MultiLLMManager
+                        multi_llm_manager = MultiLLMManager()
                         
-                    # Create a new LLMManager for this session
-                    llm_manager = LLMManager(
-                        provider_name=selected_provider.get("name"),
-                        base_url=selected_provider.get("baseURL"),
-                        api_key=selected_provider.get("apiKey"),
-                        model_name=provider_config.get("model")
-                    )
-                    
-                    # 🔒 INITIALIZE PERSISTENT CONTEXT - This ensures candidate info is always available
-                    llm_manager.initialize_candidate_context(onboarding_context)
-                    
-                    # Log the context we received for debugging
-                    print(f"📋 Interview context loaded:")
-                    print(f"   - Name: {onboarding_context.get('name', 'Not provided')}")
-                    print(f"   - Company: {onboarding_context.get('company', 'Not provided')}")
-                    print(f"   - Role: {onboarding_context.get('role', 'Not provided')}")
-                    print(f"   - Focus areas: {onboarding_context.get('focus', [])}")
-                    
-                    dg_manager = DeepgramManager(on_transcript)
-                    await dg_manager.start()
+                        # Load configuration with primary and optional secondary
+                        config_loaded = multi_llm_manager.load_configuration(
+                            primary_config={
+                                "provider": primary_provider_config.get("name"),
+                                "model": primary_provider_config.get("model")
+                            },
+                            secondary_config={
+                                "provider": secondary_provider_config.get("name") if secondary_provider_config else None,
+                                "model": secondary_provider_config.get("model") if secondary_provider_config else None
+                            } if secondary_provider_config else None
+                        )
+                        
+                        if not config_loaded:
+                            await send_json(websocket, "error", {"message": "Failed to load AI provider configuration."})
+                            return
+                        
+                        # Initialize shared candidate context
+                        multi_llm_manager.initialize_candidate_context(onboarding_context)
+                        
+                        # Perform initial health checks
+                        health_results = await multi_llm_manager.perform_health_checks()
+                        
+                        # Log the context and configuration
+                        print(f"📋 Interview context loaded:")
+                        print(f"   - Name: {onboarding_context.get('name', 'Not provided')}")
+                        print(f"   - Company: {onboarding_context.get('company', 'Not provided')}")
+                        print(f"   - Role: {onboarding_context.get('role', 'Not provided')}")
+                        print(f"   - Focus areas: {onboarding_context.get('focus', [])}")
+                        print(f"🎯 AI Configuration:")
+                        print(f"   - Primary: {primary_provider_config.get('name')} - {primary_provider_config.get('model')}")
+                        if secondary_provider_config:
+                            print(f"   - Secondary: {secondary_provider_config.get('name')} - {secondary_provider_config.get('model')}")
+                        print(f"🏥 Health Status: {health_results}")
+                        
+                        # Send initial preset information to frontend
+                        current_preset = multi_llm_manager.get_current_preset_info()
+                        await send_json(websocket, "preset_initialized", {
+                            "current_preset": current_preset,
+                            "available_presets": list(multi_llm_manager.presets.keys()),
+                            "health_status": health_results
+                        })
+                        
+                        # Start Deepgram manager
+                        dg_manager = DeepgramManager(on_transcript)
+                        await dg_manager.start()
+                        
+                    except Exception as e:
+                        print(f"❌ CRITICAL: Failed to initialize MultiLLMManager: {e}")
+                        await send_json(websocket, "error", {"message": f"Failed to initialize AI providers: {str(e)}"})
+                        return
                 elif data['type'] == 'config_update':
                     payload = data.get('payload', {})
                     if 'processAllSpeakers' in payload:
@@ -160,6 +214,58 @@ async def websocket_endpoint(websocket: WebSocket):
                     if 'isUniversallyMuted' in payload:
                         session_state["is_universally_muted"] = payload['isUniversallyMuted']
                         print(f"⏸️ Universal Mute config updated: {session_state['is_universally_muted']}")
+                        
+                elif data['type'] == 'switch_preset':
+                    # Handle preset switching requests
+                    if not multi_llm_manager:
+                        await send_json(websocket, "error", {"message": "AI providers not initialized"})
+                        continue
+                        
+                    payload = data.get('payload', {})
+                    preset_key = payload.get('preset_key')
+                    
+                    if not preset_key:
+                        await send_json(websocket, "error", {"message": "Preset key is required"})
+                        continue
+                    
+                    try:
+                        success, result = await multi_llm_manager.switch_preset(preset_key)
+                        
+                        if success:
+                            await send_json(websocket, "preset_switched", {
+                                "success": True,
+                                "current_preset": result.get("current_preset"),
+                                "previous_preset": result.get("previous_preset"),
+                                "auto_selected": result.get("auto_selected", False),
+                                "health_results": result.get("health_results"),
+                                "message": f"Switched to {result.get('current_preset', {}).get('description', 'Unknown')}"
+                            })
+                            print(f"✅ Preset switched successfully to: {preset_key}")
+                        else:
+                            error_msg = result.get("error", "Failed to switch preset")
+                            await send_json(websocket, "preset_switch_failed", {
+                                "success": False,
+                                "error": error_msg,
+                                "available_presets": result.get("available_presets", []),
+                                "health_results": result.get("health_results")
+                            })
+                            print(f"❌ Preset switch failed: {error_msg}")
+                            
+                    except Exception as e:
+                        print(f"❌ CRITICAL: Error switching preset: {e}")
+                        await send_json(websocket, "error", {"message": f"Error switching preset: {str(e)}"})
+                        
+                elif data['type'] == 'get_system_status':
+                    # Handle system status requests
+                    if multi_llm_manager:
+                        try:
+                            status = multi_llm_manager.get_system_status()
+                            await send_json(websocket, "system_status", status)
+                        except Exception as e:
+                            print(f"❌ Error getting system status: {e}")
+                            await send_json(websocket, "error", {"message": f"Error getting system status: {str(e)}"})
+                    else:
+                        await send_json(websocket, "error", {"message": "AI providers not initialized"})
                 elif data['type'] == 'audio_chunk':
                     if dg_manager:
                         # If universally muted, do not process audio chunks

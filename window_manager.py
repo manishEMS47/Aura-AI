@@ -681,14 +681,67 @@ class WindowManager:
             hidden_count = self.hide_all_screen_share_indicators()
             print(f"🕵️ Manual screen share hide triggered - hidden {hidden_count} indicators")
 
+        def on_switch_primary():
+            """Switch to primary AI preset (Alt+Q)"""
+            self.send_preset_switch_signal("primary")
+
+        def on_switch_secondary():
+            """Switch to secondary AI preset (Alt+W)"""
+            self.send_preset_switch_signal("secondary")
+
+        def on_auto_select():
+            """Auto-select best available AI preset (Alt+E)"""
+            self.send_preset_switch_signal("auto")
+
         hotkey_map = {
             '<alt>+x': on_toggle_ghost,
             '<alt>+z': on_hide_show,
-            '<alt>+s': on_hide_screen_share,  # New hotkey for manual screen share hiding
+            '<alt>+s': on_hide_screen_share,
+            '<alt>+q': on_switch_primary,     # Switch to primary preset
+            '<alt>+w': on_switch_secondary,   # Switch to secondary preset  
+            '<alt>+e': on_auto_select,        # Auto-select best preset
         }
         
         with keyboard.GlobalHotKeys(hotkey_map) as h:
             h.join()
+
+    def send_preset_switch_signal(self, preset_key: str):
+        """Send preset switch signal to the application"""
+        try:
+            # For now, just log the hotkey trigger
+            # In a real implementation, you might want to send this via a shared queue,
+            # event system, or communicate with the WebSocket connection
+            print(f"🔄 Global hotkey triggered: Switching to {preset_key} preset")
+            
+            # You could implement various communication methods:
+            # 1. Write to a file that main.py monitors
+            # 2. Use a shared queue/event system
+            # 3. Send HTTP request to local API
+            # 4. Use inter-process communication
+            
+            # For now, we'll use a simple approach - writing to a temp file
+            import tempfile
+            import json
+            from datetime import datetime
+            
+            preset_command = {
+                "command": "switch_preset",
+                "preset_key": preset_key,
+                "timestamp": datetime.now().isoformat(),
+                "source": "global_hotkey"
+            }
+            
+            # Write command to a temp file that could be monitored
+            temp_dir = tempfile.gettempdir()
+            command_file = os.path.join(temp_dir, "aura_preset_command.json")
+            
+            with open(command_file, "w") as f:
+                json.dump(preset_command, f)
+            
+            print(f"📄 Preset command written to: {command_file}")
+            
+        except Exception as e:
+            print(f"❌ Error sending preset switch signal: {e}")
 
     def start_hotkey_listener(self):
         """Starts the global hotkey listener in a separate thread."""
@@ -700,6 +753,9 @@ class WindowManager:
         print("   Alt+X: Toggle ghost mode (click-through)")
         print("   Alt+Z: Toggle window visibility")
         print("   Alt+S: Hide screen sharing indicators")
+        print("   Alt+Q: Switch to primary AI preset")
+        print("   Alt+W: Switch to secondary AI preset")
+        print("   Alt+E: Auto-select best AI preset")
         
         # Ensure we have the handle before starting
         if not self.hwnd:

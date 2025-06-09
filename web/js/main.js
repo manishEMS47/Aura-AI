@@ -8,6 +8,7 @@ import { autofillForTesting } from './dev.js';
 import { loadConfig, isDev, devLog, devWarn, devError } from './config.js';
 import liveInterviewUI from './live-interview.js';
 import hotkeyManager from './hotkeys.js';
+import presetManager from './preset-manager.js';
 
 // --- State Management ---
 const appState = {
@@ -17,7 +18,14 @@ const appState = {
     selectedProvider: {
         name: null,
         model: null,
-    }
+    },
+    selectedSecondaryProvider: {
+        name: null,
+        model: null,
+    },
+    currentPreset: null,
+    availablePresets: [],
+    systemStatus: null
 };
 
 // --- DOM Elements ---
@@ -36,6 +44,8 @@ const onboardingForm = {
     objectives: document.getElementById('user-objectives'),
     providerSelect: document.getElementById('ai-provider-select'),
     modelSelect: document.getElementById('ai-model-select'),
+    secondaryProviderSelect: document.getElementById('ai-secondary-provider-select'),
+    secondaryModelSelect: document.getElementById('ai-secondary-model-select'),
 };
 
 const checks = {
@@ -44,6 +54,7 @@ const checks = {
     backend: document.getElementById('check-backend'),
     deepgram: document.getElementById('check-deepgram'),
     aiProvider: document.getElementById('check-ai-provider'),
+    aiSecondaryProvider: document.getElementById('check-ai-secondary-provider'),
 };
 
 const micSelect = document.getElementById('mic-select');
@@ -102,6 +113,26 @@ function handleOnboarding() {
         return;
     }
 
+    // Validate secondary provider selection (both provider and model must be selected together)
+    const secondaryProvider = onboardingForm.secondaryProviderSelect.value;
+    const secondaryModel = onboardingForm.secondaryModelSelect.value;
+    
+    if ((secondaryProvider && !secondaryModel) || (!secondaryProvider && secondaryModel)) {
+        alert('If you select a secondary provider, you must also select a secondary model (or leave both empty).');
+        return;
+    }
+
+    // Validate that primary and secondary are different (if both selected)
+    if (secondaryProvider && secondaryModel) {
+        const primaryProvider = onboardingForm.providerSelect.value;
+        const primaryModel = onboardingForm.modelSelect.value;
+        
+        if (primaryProvider === secondaryProvider && primaryModel === secondaryModel) {
+            alert('Primary and secondary AI models cannot be the same. Please select different models.');
+            return;
+        }
+    }
+
     const focus = focusCheckboxes.map(cb => cb.value);
 
     appState.onboardingData = {
@@ -115,6 +146,10 @@ function handleOnboarding() {
 
     appState.selectedProvider.name = onboardingForm.providerSelect.value;
     appState.selectedProvider.model = onboardingForm.modelSelect.value;
+    
+    // Secondary provider is optional but validated
+    appState.selectedSecondaryProvider.name = secondaryProvider || null;
+    appState.selectedSecondaryProvider.model = secondaryModel || null;
 
     devLog("Onboarding data captured:", appState);
     switchView('preflight');
@@ -137,29 +172,63 @@ async function runPreFlightChecks() {
     // 2. Backend Connection
     connectWebSocket();
 
-    // 3. AI Provider Check
-    verifyAiProvider();
+    // 3. Show secondary provider check if selected
+    if (appState.selectedSecondaryProvider.name && appState.selectedSecondaryProvider.model) {
+        checks.aiSecondaryProvider.style.display = 'flex';
+        devLog('Secondary provider selected, will verify during preflight');
+    } else {
+        checks.aiSecondaryProvider.style.display = 'none';
+        devLog('No secondary provider selected, skipping verification');
+    }
+
+    // 4. AI Provider Checks
+    await verifyAiProviders();
 }
 
-async function verifyAiProvider() {
-    const { name, model } = appState.selectedProvider;
-    updateCheckStatus(checks.aiProvider, 'pending', `Checking ${name}...`);
+async function verifyAiProviders() {
+    // Verify primary provider (required)
+    await verifyProvider(
+        appState.selectedProvider, 
+        checks.aiProvider, 
+        'Primary'
+    );
+    
+    // Verify secondary provider if selected (optional)
+    if (appState.selectedSecondaryProvider.name && appState.selectedSecondaryProvider.model) {
+        await verifyProvider(
+            appState.selectedSecondaryProvider, 
+            checks.aiSecondaryProvider, 
+            'Secondary'
+        );
+    }
+    
+    checkAllSystemsGo();
+}
+
+async function verifyProvider(providerConfig, checkElement, providerType) {
+    const { name, model } = providerConfig;
+    updateCheckStatus(checkElement, 'pending', `Checking ${providerType} ${name}...`);
+    
     try {
         const response = await fetch('/api/verify-provider', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, model }),
         });
+        
         const result = await response.json();
+        
         if (result.success) {
-            updateCheckStatus(checks.aiProvider, 'success', `${name} (${model}) OK`);
+            updateCheckStatus(checkElement, 'success', `${providerType} ${name} (${model}) OK`);
+            devLog(`✅ ${providerType} provider verification successful:`, { name, model });
         } else {
-            updateCheckStatus(checks.aiProvider, 'error', `${name} Connection Failed`);
+            updateCheckStatus(checkElement, 'error', `${providerType} ${name} Connection Failed`);
+            console.error(`❌ ${providerType} provider verification failed:`, { name, model });
         }
     } catch (error) {
-        updateCheckStatus(checks.aiProvider, 'error', 'AI Provider Check Failed');
+        updateCheckStatus(checkElement, 'error', `${providerType} Provider Check Failed`);
+        console.error(`❌ ${providerType} provider check error:`, error);
     }
-    checkAllSystemsGo();
 }
 
 function sendSocketMessage(type, payload) {
@@ -227,19 +296,89 @@ function connectWebSocket() {
             }
         } else if (data.type === 'ai_answer') {
             if (window.liveInterviewUI) {
-                liveInterviewUI.addAIResponse(data.payload.answer);
+                const answer = data.payload.answer;
+                const presetUsed = data.payload.preset_used;
+                const success = data.payload.success;
+                const errorInfo = data.payload.error_info;
+                const fallbackInfo = data.payload.fallback_info;
+                
+                liveInterviewUI.addAIResponse(answer, {
+                    preset: presetUsed,
+                    success: success,
+                    error: errorInfo,
+                    fallback: fallbackInfo
+                });
+            }
+        } else if (data.type === 'preset_initialized') {
+            // Handle initial preset setup
+            appState.currentPreset = data.payload.current_preset;
+            appState.availablePresets = data.payload.available_presets;
+            
+            if (window.presetManager) {
+                presetManager.updatePresetDisplay(data.payload.current_preset);
+                presetManager.updateHealthStatus(data.payload.health_status);
+            }
+            
+            devLog("Preset system initialized:", data.payload);
+        } else if (data.type === 'preset_switched') {
+            // Handle successful preset switches
+            appState.currentPreset = data.payload.current_preset;
+            
+            if (window.presetManager) {
+                presetManager.updatePresetDisplay(data.payload.current_preset);
+                presetManager.showSwitchNotification(data.payload);
+            }
+            
+            devLog("Preset switched:", data.payload);
+        } else if (data.type === 'preset_switch_failed') {
+            // Handle failed preset switches
+            if (window.presetManager) {
+                presetManager.showErrorNotification(data.payload.error, data.payload);
+            }
+            
+            console.error("Preset switch failed:", data.payload);
+        } else if (data.type === 'system_status') {
+            // Handle system status updates
+            appState.systemStatus = data.payload;
+            devLog("System status update:", data.payload);
+        } else if (data.type === 'error') {
+            // Handle general errors
+            console.error("WebSocket error:", data.payload);
+            if (window.presetManager) {
+                presetManager.showErrorNotification(data.payload.message);
             }
         }
     };
 }
 
 function checkAllSystemsGo() {
-    const allGreen = Object.values(checks).every(
+    // Only check visible checks (secondary provider might be hidden)
+    const visibleChecks = Object.values(checks).filter(check => 
+        check.style.display !== 'none' && getComputedStyle(check).display !== 'none'
+    );
+    
+    const allGreen = visibleChecks.every(
         check => check.querySelector('.indicator').textContent === '🟢'
     );
+    
     if (allGreen) {
         startButton.disabled = false;
         console.log("All systems go! Ready to start interview.");
+        
+        // Log which providers were verified
+        const verifiedProviders = [];
+        if (checks.aiProvider.querySelector('.indicator').textContent === '🟢') {
+            verifiedProviders.push(`Primary: ${appState.selectedProvider.name}`);
+        }
+        if (checks.aiSecondaryProvider.style.display !== 'none' && 
+            checks.aiSecondaryProvider.querySelector('.indicator').textContent === '🟢') {
+            verifiedProviders.push(`Secondary: ${appState.selectedSecondaryProvider.name}`);
+        }
+        
+        devLog('✅ All verified providers:', verifiedProviders);
+    } else {
+        startButton.disabled = true;
+        devLog('⚠️ Some checks are still pending or failed');
     }
 }
 
@@ -264,13 +403,22 @@ async function startInterview() {
     }
 
     const initialMuteStatus = muteManager.getMuteStatus();
-    sendSocketMessage('start_interview', {
+    
+    // Prepare payload with primary and optional secondary provider
+    const interviewPayload = {
         aiProvider: appState.selectedProvider,
         onboardingData: appState.onboardingData,
         is_muted: initialMuteStatus.microphone,
         is_universally_muted: initialMuteStatus.universal,
         process_all_speakers: true, // Default enabled as per plan
-    });
+    };
+    
+    // Add secondary provider if selected
+    if (appState.selectedSecondaryProvider.name && appState.selectedSecondaryProvider.model) {
+        interviewPayload.aiSecondaryProvider = appState.selectedSecondaryProvider;
+    }
+    
+    sendSocketMessage('start_interview', interviewPayload);
 }
 
 async function endInterview() {
@@ -290,6 +438,7 @@ async function loadAiProviders() {
         const response = await fetch('/api/ai-providers');
         appState.aiProviders = await response.json();
 
+        // Populate primary provider dropdown
         const providerSelect = onboardingForm.providerSelect;
         providerSelect.innerHTML = '<option value="">Select AI Provider</option>';
         appState.aiProviders.forEach(p => {
@@ -297,6 +446,16 @@ async function loadAiProviders() {
             option.value = p.name;
             option.textContent = p.name;
             providerSelect.appendChild(option);
+        });
+
+        // Populate secondary provider dropdown
+        const secondaryProviderSelect = onboardingForm.secondaryProviderSelect;
+        secondaryProviderSelect.innerHTML = '<option value="">Select Secondary Provider (Optional)</option>';
+        appState.aiProviders.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.name;
+            option.textContent = p.name;
+            secondaryProviderSelect.appendChild(option);
         });
 
         // Use requestAnimationFrame to ensure DOM is ready
@@ -352,18 +511,58 @@ function updateModelDropdown() {
     }
 }
 
+function updateSecondaryModelDropdown() {
+    const providerName = onboardingForm.secondaryProviderSelect.value;
+    const provider = appState.aiProviders.find(p => p.name === providerName);
+    const modelSelect = onboardingForm.secondaryModelSelect;
+
+    modelSelect.innerHTML = '<option value="">Select Secondary Model</option>';
+    modelSelect.disabled = true;
+
+    if (provider && provider.models) {
+        provider.models.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model;
+            option.textContent = model;
+            modelSelect.appendChild(option);
+        });
+        modelSelect.disabled = false;
+    }
+}
+
+
+// --- Preset Switching Functions ---
+function switchPreset(presetKey) {
+    if (appState.socket && appState.socket.readyState === WebSocket.OPEN) {
+        sendSocketMessage('switch_preset', { preset_key: presetKey });
+    } else {
+        console.error('Cannot switch preset: WebSocket not connected');
+    }
+}
+
+function getSystemStatus() {
+    if (appState.socket && appState.socket.readyState === WebSocket.OPEN) {
+        sendSocketMessage('get_system_status', {});
+    }
+}
+
+// Make preset switching globally accessible
+window.switchPreset = switchPreset;
+window.getSystemStatus = getSystemStatus;
 
 // --- Event Listeners ---
 proceedButton.addEventListener('click', handleOnboarding);
 startButton.addEventListener('click', startInterview);
 backButton.addEventListener('click', () => switchView('onboarding'));
 onboardingForm.providerSelect.addEventListener('change', updateModelDropdown);
+onboardingForm.secondaryProviderSelect.addEventListener('change', updateSecondaryModelDropdown);
 
 window.addEventListener('DOMContentLoaded', async () => {
     await loadConfig();
     await loadAiProviders();
     liveInterviewUI.init(); // Initialize the UI elements as soon as the DOM is ready
     setupDeveloperShortcuts();
+    setupPresetHotkeys(); // Initialize preset switching hotkeys
     hotkeyManager.setEnabled(false);
     switchView('onboarding');
 });
@@ -375,7 +574,6 @@ window.sendSocketMessage = sendSocketMessage; // Expose for global config
 
 // --- Developer Shortcuts ---
 function setupDeveloperShortcuts() {
-
     devLog('🛠️ Developer shortcuts enabled');
     window.addEventListener('keydown', (e) => {
         if (e.ctrlKey && e.key === 'j') {
@@ -384,5 +582,37 @@ function setupDeveloperShortcuts() {
             autofillForTesting(onboardingForm);
         }
     });
+}
 
+function setupPresetHotkeys() {
+    devLog('🎹 Setting up preset switching hotkeys');
+    document.addEventListener('keydown', (e) => {
+        // Only work during live interview and if not focusing on input fields
+        if (!e.target.matches('input, textarea, select') && isLiveInterviewActive()) {
+            if (e.altKey && !e.ctrlKey && !e.shiftKey) {
+                switch(e.key.toLowerCase()) {
+                    case 'q':
+                        e.preventDefault();
+                        switchPreset('primary');
+                        devLog('🔄 Hotkey: Switching to primary preset');
+                        break;
+                    case 'w': 
+                        e.preventDefault();
+                        switchPreset('secondary');
+                        devLog('🔄 Hotkey: Switching to secondary preset');
+                        break;
+                    case 'e':
+                        e.preventDefault(); 
+                        switchPreset('auto');
+                        devLog('🔄 Hotkey: Auto-selecting best preset');
+                        break;
+                }
+            }
+        }
+    });
+}
+
+function isLiveInterviewActive() {
+    const currentView = document.querySelector('.view.active');
+    return currentView && currentView.id === 'live-view';
 }

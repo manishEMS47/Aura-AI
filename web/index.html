@@ -45,13 +45,41 @@
 
             <fieldset>
                 <legend>AI Configuration</legend>
-                <div class="ai-config-group">
-                    <select id="ai-provider-select" required>
-                        <option value="">Select AI Provider</option>
-                    </select>
-                    <select id="ai-model-select" disabled required>
-                        <option value="">Select Model</option>
-                    </select>
+                <div class="ai-config-section">
+                    <div class="ai-config-primary">
+                        <h4>Primary AI Model (Default)</h4>
+                        <div class="ai-config-group">
+                            <select id="ai-provider-select" required>
+                                <option value="">Select AI Provider</option>
+                            </select>
+                            <select id="ai-model-select" disabled required>
+                                <option value="">Select Model</option>
+                            </select>
+                        </div>
+                        <small class="config-hint">Primary model will be used by default for all responses</small>
+                    </div>
+                    
+                    <div class="ai-config-secondary">
+                        <h4>Secondary AI Model (Optional)</h4>
+                        <div class="ai-config-group">
+                            <select id="ai-secondary-provider-select">
+                                <option value="">Select Secondary Provider (Optional)</option>
+                            </select>
+                            <select id="ai-secondary-model-select" disabled>
+                                <option value="">Select Secondary Model</option>
+                            </select>
+                        </div>
+                        <small class="config-hint">Switch to secondary model anytime with Alt+W hotkey during interview</small>
+                    </div>
+                    
+                    <div class="preset-info">
+                        <h4>Quick Switch Hotkeys</h4>
+                        <div class="hotkey-list">
+                            <span class="hotkey-item"><kbd>Alt+Q</kbd> Primary Model</span>
+                            <span class="hotkey-item"><kbd>Alt+W</kbd> Secondary Model</span>
+                            <span class="hotkey-item"><kbd>Alt+E</kbd> Auto-Select Best</span>
+                        </div>
+                    </div>
                 </div>
             </fieldset>
 
@@ -73,7 +101,8 @@
                 <div class="check-item" id="check-mic-selection"><span class="indicator">⚪</span> Microphone Selection <select id="mic-select" disabled></select></div>
                 <div class="check-item" id="check-backend"><span class="indicator">⚪</span> Backend Connection</div>
                 <div class="check-item" id="check-deepgram"><span class="indicator">⚪</span> Deepgram API</div>
-                <div class="check-item" id="check-ai-provider"><span class="indicator">⚪</span> AI Provider</div>
+                <div class="check-item" id="check-ai-provider"><span class="indicator">⚪</span> Primary AI Provider</div>
+                <div class="check-item" id="check-ai-secondary-provider" style="display: none;"><span class="indicator">⚪</span> Secondary AI Provider</div>
             </div>
             <div class="preflight-buttons">
                 <button id="back-to-onboarding-btn">Back</button>
@@ -117,6 +146,7 @@
         </div>
     </div>
 
+    <script type="module" src="/static/js/preset-manager.js"></script>
     <script type="module" src="/static/js/main.js"></script>
 
 </body>
