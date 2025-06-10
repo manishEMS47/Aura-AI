@@ -56,17 +56,38 @@
         "apiKey": "YOUR_OPENROUTER_API_KEY_HERE",
         "models": [
             {
+                "modelName": "qwen/qwen3-32b",
+                "description": "qwen/qwen3-32b (via Cerebras)",
+                "requestParams": {
+                    "provider": { "only": ["Cerebras"] }
+                }
+            },
+            {
                 "modelName": "meta-llama/llama-3.3-70b-instruct",
                 "description": "Llama 3.3 70B (via Cerebras)",
                 "requestParams": {
                     "provider": { "only": ["Cerebras"] }
                 }
             },
+            {
+                "modelName": "meta-llama/llama-4-maverick",
+                "description": "Llama 4 Maverick (via Groq)",
+                "requestParams": {
+                    "provider": { "only": ["Groq"] }
+                }
+            },
             "qwen/qwen3-32b",
             "meta-llama/llama-4-maverick"
         ],
         "visionModels": [
-             "meta-llama/llama-4-maverick"            
+            {
+                "modelName": "meta-llama/llama-4-maverick",
+                "description": "Llama 4 Maverick Vision (via Groq)",
+                "requestParams": {
+                    "provider": { "only": ["Groq"] }
+                }
+            },
+            "meta-llama/llama-4-maverick"
         ],
         "supportsVision": true,
         "defaultModel": "qwen/qwen3-32b"

@@ -106,7 +106,11 @@ export class ProviderManager {
                     if (this.onboardingForm.modelSelect && !this.onboardingForm.modelSelect.disabled) {
                         const defaultModel = primaryProvider.defaultModel || primaryProvider.models[0];
                         if (defaultModel) {
-                            this.onboardingForm.modelSelect.value = defaultModel;
+                            // Handle both string and object models for default selection
+                            const modelName = this._getModelName(defaultModel);
+                            if (modelName) {
+                                this.onboardingForm.modelSelect.value = modelName;
+                            }
                         }
                     }
                 }, 150);
@@ -122,7 +126,11 @@ export class ProviderManager {
                     if (this.onboardingForm.secondaryModelSelect && !this.onboardingForm.secondaryModelSelect.disabled) {
                         const defaultModel = secondaryProvider.defaultModel || secondaryProvider.models[0];
                         if (defaultModel) {
-                            this.onboardingForm.secondaryModelSelect.value = defaultModel;
+                            // Handle both string and object models for default selection
+                            const modelName = this._getModelName(defaultModel);
+                            if (modelName) {
+                                this.onboardingForm.secondaryModelSelect.value = modelName;
+                            }
                         }
                     }
                 }, 200);
@@ -138,7 +146,11 @@ export class ProviderManager {
                     if (this.onboardingForm.visionModelSelect && !this.onboardingForm.visionModelSelect.disabled) {
                         const defaultModel = primaryVisionProvider.defaultVisionModel || primaryVisionProvider.visionModels[0];
                         if (defaultModel) {
-                            this.onboardingForm.visionModelSelect.value = defaultModel;
+                            // Handle both string and object models for default selection
+                            const modelName = this._getModelName(defaultModel);
+                            if (modelName) {
+                                this.onboardingForm.visionModelSelect.value = modelName;
+                            }
                         }
                     }
                 }, 250);
@@ -154,7 +166,11 @@ export class ProviderManager {
                     if (this.onboardingForm.visionSecondaryModelSelect && !this.onboardingForm.visionSecondaryModelSelect.disabled) {
                         const defaultModel = secondaryVisionProvider.defaultVisionModel || secondaryVisionProvider.visionModels[0];
                         if (defaultModel) {
-                            this.onboardingForm.visionSecondaryModelSelect.value = defaultModel;
+                            // Handle both string and object models for default selection
+                            const modelName = this._getModelName(defaultModel);
+                            if (modelName) {
+                                this.onboardingForm.visionSecondaryModelSelect.value = modelName;
+                            }
                         }
                     }
                 }, 300);
@@ -165,88 +181,108 @@ export class ProviderManager {
         }
     }
 
+    /**
+     * Helper function to get the model name from either a string or object model
+     * Used for matching default models and setting dropdown values
+     *
+     * @param {string|object} model - Model (string or object with modelName)
+     * @returns {string} - The model name/identifier
+     */
+    _getModelName(model) {
+        if (typeof model === 'string') {
+            return model;
+        } else if (typeof model === 'object' && model.modelName) {
+            return model.modelName;
+        }
+        return null;
+    }
+
+    /**
+     * Smart helper function to populate model dropdowns
+     * Handles both string models and complex object models with routing
+     *
+     * @param {Array} models - Array of models (strings or objects)
+     * @param {HTMLSelectElement} selectElement - The dropdown element to populate
+     * @param {string} defaultOptionText - Text for the default option
+     */
+    _populateModelDropdown(models, selectElement, defaultOptionText) {
+        if (!selectElement || !models) return;
+
+        // Clear existing options and add default
+        selectElement.innerHTML = `<option value="">${defaultOptionText}</option>`;
+        selectElement.disabled = true;
+
+        if (models.length > 0) {
+            models.forEach(model => {
+                const option = document.createElement('option');
+                
+                // Handle both string models and object models with routing
+                if (typeof model === 'string') {
+                    // Simple string model - use as both value and display text
+                    option.value = model;
+                    option.textContent = model;
+                } else if (typeof model === 'object' && model.modelName) {
+                    // Complex object model with routing - use modelName as value and description as display
+                    option.value = model.modelName;
+                    option.textContent = model.description || model.modelName;
+                } else {
+                    // Fallback for unexpected model format
+                    console.warn('Unexpected model format:', model);
+                    return; // Skip this model
+                }
+                
+                selectElement.appendChild(option);
+            });
+            selectElement.disabled = false;
+        }
+    }
+
     updateModelDropdown() {
         const providerName = this.onboardingForm.providerSelect?.value;
         const provider = this.aiProviders.find(p => p.name === providerName);
-        const modelSelect = this.onboardingForm.modelSelect;
-
-        if (!modelSelect) return;
-
-        modelSelect.innerHTML = '<option value="">Select Model</option>';
-        modelSelect.disabled = true;
-
-        if (provider?.models) {
-            provider.models.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model;
-                option.textContent = model;
-                modelSelect.appendChild(option);
-            });
-            modelSelect.disabled = false;
-        }
+        
+        // Use the smart helper function to populate the dropdown
+        this._populateModelDropdown(
+            provider?.models || [],
+            this.onboardingForm.modelSelect,
+            'Select Model'
+        );
     }
 
     updateSecondaryModelDropdown() {
         const providerName = this.onboardingForm.secondaryProviderSelect?.value;
         const provider = this.aiProviders.find(p => p.name === providerName);
-        const modelSelect = this.onboardingForm.secondaryModelSelect;
-
-        if (!modelSelect) return;
-
-        modelSelect.innerHTML = '<option value="">Select Secondary Model</option>';
-        modelSelect.disabled = true;
-
-        if (provider?.models) {
-            provider.models.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model;
-                option.textContent = model;
-                modelSelect.appendChild(option);
-            });
-            modelSelect.disabled = false;
-        }
+        
+        // Use the smart helper function to populate the dropdown
+        this._populateModelDropdown(
+            provider?.models || [],
+            this.onboardingForm.secondaryModelSelect,
+            'Select Secondary Model'
+        );
     }
 
     updateVisionModelDropdown() {
         const providerName = this.onboardingForm.visionProviderSelect?.value;
         const provider = this.aiProviders.find(p => p.name === providerName);
-        const modelSelect = this.onboardingForm.visionModelSelect;
-
-        if (!modelSelect) return;
-
-        modelSelect.innerHTML = '<option value="">Select Vision Model</option>';
-        modelSelect.disabled = true;
-
-        if (provider?.visionModels?.length > 0) {
-            provider.visionModels.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model;
-                option.textContent = model;
-                modelSelect.appendChild(option);
-            });
-            modelSelect.disabled = false;
-        }
+        
+        // Use the smart helper function to populate the dropdown
+        this._populateModelDropdown(
+            provider?.visionModels || [],
+            this.onboardingForm.visionModelSelect,
+            'Select Vision Model'
+        );
     }
 
     updateSecondaryVisionModelDropdown() {
         const providerName = this.onboardingForm.visionSecondaryProviderSelect?.value;
         const provider = this.aiProviders.find(p => p.name === providerName);
-        const modelSelect = this.onboardingForm.visionSecondaryModelSelect;
-
-        if (!modelSelect) return;
-
-        modelSelect.innerHTML = '<option value="">Select Secondary Vision Model</option>';
-        modelSelect.disabled = true;
-
-        if (provider?.visionModels?.length > 0) {
-            provider.visionModels.forEach(model => {
-                const option = document.createElement('option');
-                option.value = model;
-                option.textContent = model;
-                modelSelect.appendChild(option);
-            });
-            modelSelect.disabled = false;
-        }
+        
+        // Use the smart helper function to populate the dropdown
+        this._populateModelDropdown(
+            provider?.visionModels || [],
+            this.onboardingForm.visionSecondaryModelSelect,
+            'Select Secondary Vision Model'
+        );
     }
 
     async runPreFlightChecks() {
