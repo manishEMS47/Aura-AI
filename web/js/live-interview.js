@@ -132,7 +132,6 @@ class LiveInterviewUI {
             this.exitReadingMode();
         }
         
-        devLog(`📜 Scroll: pos=${currentPosition}, dir=${direction}, nearBottom=${this.scrollState.isNearBottom}, reading=${this.scrollState.userReadingMode}`);
     }
 
     handleWheelEvent(e) {
@@ -882,7 +881,6 @@ class LiveInterviewUI {
 
     setScrollMode(mode, targetElement = null) {
         this.scrollState.mode = mode;
-        devLog(`📜 Scroll mode set to: ${mode}`);
 
         switch (mode) {
             case 'live_bottom':
@@ -918,7 +916,6 @@ class LiveInterviewUI {
             // Don't interrupt user reading - just mark that new content is available
             this.scrollState.newContentPending = true;
             this.showResumeScrollButton();
-            devLog('📜 Scroll to bottom deferred - user is reading');
             return;
         }
         if (this.conversationStream) {
@@ -931,7 +928,6 @@ class LiveInterviewUI {
             // Don't interrupt user reading - just mark that new content is available
             this.scrollState.newContentPending = true;
             this.showResumeScrollButton();
-            devLog('📜 Scroll to AI response start deferred - user is reading');
             return;
         }
         if (this.scrollState.aiResponseStartElement) {
@@ -1169,7 +1165,6 @@ class LiveInterviewUI {
     handleMuteStateChange(status) {
         this.updateMuteButton(status.microphone);
         this.showActivity(); // Re-evaluates the activity indicator text
-        devLog(`UI updated for mute state: Mic=${status.microphone}, Universal=${status.universal}`);
     }
 
     // Update mute button appearance
