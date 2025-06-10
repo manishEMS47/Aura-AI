@@ -97,7 +97,7 @@ class LLMManager:
                         model=self.model_name,
                         temperature=0.3,  # Slightly lower for faster, more focused responses
                         top_p=0.85,       # More focused responses
-                        max_tokens=4000,  # Optimized for speed
+                        max_tokens=8000,  # Optimized for speed
                         stream=True       # Enable streaming
                     ):
                         if not streaming_active:
@@ -131,7 +131,7 @@ class LLMManager:
                             model=self.model_name,
                             temperature=0.3,
                             top_p=0.85,
-                            max_tokens=4000
+                            max_tokens=8000
                         ),
                         timeout=30.0
                     )
@@ -144,7 +144,7 @@ class LLMManager:
                         model=self.model_name,
                         temperature=0.3,  # Optimized for speed
                         top_p=0.85,
-                        max_tokens=4000   # Optimized for speed
+                        max_tokens=8000   # Optimized for speed
                     ),
                     timeout=30.0  # Reduced timeout for faster failure detection
                 )

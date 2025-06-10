@@ -1,6 +1,6 @@
 export const devData = {
     name: 'Ritik',
-    company: 'American Express',
+    company: 'Nucleus Institute Corp',
     role: 'Software Engineer',
     focus: 'coding',
     resume: `RITIK
