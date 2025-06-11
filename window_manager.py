@@ -21,6 +21,7 @@ from pynput import keyboard
 WDA_EXCLUDEFROMCAPTURE = 0x00000011
 SW_HIDE = 0
 SW_SHOW = 5
+SW_SHOWNOACTIVATE = 4  # Show window without giving it focus - crucial for stealth
 
 # --- Win32 Function Loading ---
 # We use the ctypes library to load functions directly from user32.dll, a core
@@ -633,8 +634,52 @@ class WindowManager:
         """Toggles the ghost mode on or off."""
         self.set_ghost_mode(not self.is_ghost_mode)
 
+    def enable_proctoring_stealth_mode(self):
+        """
+        Enable complete stealth mode for proctoring environments.
+        
+        This mode combines multiple stealth features:
+        - Ghost mode (click-through) to prevent accidental focus
+        - Screen capture protection
+        - Always on top but without focus
+        - Hidden from taskbar
+        
+        Use global hotkeys (Alt+Z, Alt+X, etc.) to interact safely.
+        """
+        if not self.is_windows or not self.hwnd:
+            print("❌ Proctoring stealth mode requires Windows and valid window handle")
+            return False
+        
+        try:
+            print("🎯 Enabling PROCTORING STEALTH MODE...")
+            
+            # 1. Enable ghost mode (click-through)
+            self.set_ghost_mode(True)
+            
+            # 2. Hide from taskbar
+            self.hide_from_taskbar()
+            
+            # 3. Set always on top but without focus
+            self.set_always_on_top(True)
+            
+            # 4. Make semi-transparent for visibility without being obvious
+            self.set_transparency(0.7)
+            
+            print("✅ PROCTORING STEALTH MODE ENABLED")
+            print("   🚨 IMPORTANT: Use ONLY global hotkeys to interact:")
+            print("   📌 Alt+Z: Toggle visibility (no focus change)")
+            print("   📌 Alt+X: Toggle ghost mode")
+            print("   📌 Alt+1/2/3: Adjust transparency")
+            print("   📌 DO NOT click on the window - it will trigger focus detection!")
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error enabling proctoring stealth mode: {e}")
+            return False
+
     def toggle_visibility(self):
-        """Toggle the window's visibility."""
+        """Toggle the window's visibility without changing focus (stealth mode)."""
         if not self.is_windows or not self.hwnd:
             print("Window visibility control not supported or no window handle.")
             return
@@ -643,8 +688,10 @@ class WindowManager:
             _user32.ShowWindow(self.hwnd, SW_HIDE)
             print("🕵️‍ Window hidden via global hotkey.")
         else:
-            _user32.ShowWindow(self.hwnd, SW_SHOW)
-            print("✨ Window shown via global hotkey.")
+            # Use SW_SHOWNOACTIVATE to show window without giving it focus
+            # This prevents proctoring software from detecting focus changes
+            _user32.ShowWindow(self.hwnd, SW_SHOWNOACTIVATE)
+            print("✨ Window shown via global hotkey (stealth - no focus change).")
             # Re-apply always-on-top state when showing the window
             self.set_always_on_top(True)
 
@@ -728,6 +775,10 @@ class WindowManager:
             """Reset/clear screenshot queue (Alt+R)"""
             self.send_vision_command("reset_screenshot_queue")
 
+        def on_enable_proctoring_stealth():
+            """Enable proctoring stealth mode (Alt+Shift+S)"""
+            self.enable_proctoring_stealth_mode()
+
         hotkey_map = {
             '<alt>+x': on_toggle_ghost,
             '<alt>+z': on_hide_show,
@@ -736,7 +787,7 @@ class WindowManager:
             '<alt>+p': on_process_screenshots, # Process screenshots
             '<alt>+r': on_reset_screenshot_queue, # Reset screenshot queue
             '<alt>+q': on_switch_primary,      # Switch to primary preset
-            '<alt>+w': on_switch_secondary,    # Switch to secondary preset  
+            '<alt>+w': on_switch_secondary,    # Switch to secondary preset
             '<alt>+e': on_auto_select,         # Auto-select best AI preset
             '<alt>+t': on_switch_vision_model,   # Switch vision model
             '<alt>+m': on_toggle_mic_mute,     # Toggle microphone mute
@@ -744,6 +795,7 @@ class WindowManager:
             '<alt>+1': on_transparency_transparent,  # 40% opacity (transparent)
             '<alt>+2': on_transparency_semi,         # 70% opacity (semi-transparent)
             '<alt>+3': on_transparency_opaque,       # 100% opacity (opaque)
+            '<alt>+<shift>+s': on_enable_proctoring_stealth,  # Enable proctoring stealth mode
         }
         
         with keyboard.GlobalHotKeys(hotkey_map) as h:
@@ -853,7 +905,7 @@ class WindowManager:
 
         print("🚀 Initializing global hotkey listener...")
         print("   Alt+X: Toggle ghost mode (click-through)")
-        print("   Alt+Z: Toggle window visibility")
+        print("   Alt+Z: Toggle window visibility (stealth - no focus)")
         print("   Alt+V: Toggle vision mode")
         print("   Alt+S: Capture screenshot")
         print("   Alt+P: Process screenshots with AI")
@@ -867,6 +919,7 @@ class WindowManager:
         print("   Alt+1: Set transparent (40% opacity)")
         print("   Alt+2: Set semi-transparent (70% opacity)")
         print("   Alt+3: Set opaque (100% opacity)")
+        print("   Alt+Shift+S: Enable proctoring stealth mode")
         
         # Ensure we have the handle before starting
         if not self.hwnd:
@@ -925,6 +978,10 @@ def start_screen_share_monitor():
 def stop_screen_share_monitor():
     """Stop monitoring screen share indicators"""
     window_manager.stop_screen_share_monitor()
+
+def enable_proctoring_stealth_mode():
+    """Enable complete stealth mode for proctoring environments"""
+    return window_manager.enable_proctoring_stealth_mode()
 
 def test_screen_share_detection():
     """Test function to show all currently detected screen sharing indicators"""
