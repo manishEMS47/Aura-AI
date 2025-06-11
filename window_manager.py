@@ -1285,7 +1285,7 @@ def apply_capture_protection(window):
     if not hwnd:
         print("⚠️ Trying multiple search attempts...")
         for attempt in range(5):
-            time.sleep(0.1)
+            time.sleep(0.05)
             hwnd = _user32.FindWindowW(None, "Aura")
             if hwnd:
                 print(f"🔍 Method 3 (attempt {attempt + 1}): Found {hex(hwnd)}")
