@@ -122,7 +122,7 @@ class GlobalCommandMonitor:
             return False
         
         # Create a unique command identifier for deduplication
-        command_id = f"{command}_{command_data.get('level', '')}_{command_data.get('preset_key', '')}"
+        command_id = f"{command}_{command_data.get('level', '')}_{command_data.get('preset_key', '')}_{command_data.get('direction', '')}"
         current_time = time.time()
         
         # Check for duplicate commands within cooldown period
@@ -165,6 +165,16 @@ class GlobalCommandMonitor:
                 self._execute_browser_command('if (window.switchVisionModel) { window.switchVisionModel(); } else { console.warn("switchVisionModel not available"); }')
             elif command == 'reset_interview':
                 self._execute_browser_command('if (window.resetInterview) { window.resetInterview(); } else { console.warn("resetInterview not available"); }')
+            elif command == 'scroll':
+                direction = command_data.get('direction', 'down')
+                amount = command_data.get('amount', 150)
+                # Use smooth scrolling with the specified amount
+                if direction == 'up':
+                    scroll_amount = -amount
+                else:
+                    scroll_amount = amount
+                js_code = f'document.getElementById("conversation-stream").scrollBy({{ top: {scroll_amount}, left: 0, behavior: "smooth" }})'
+                self._execute_browser_command(js_code)
             elif command == 'context_aware_action':
                 action = command_data.get('action', '')
                 if action == 'auto_select_preset':

@@ -14,6 +14,11 @@ from typing import Optional
 from threading import Thread
 from pynput import keyboard
 
+# --- Scroll Configuration ---
+# Change this value to adjust scroll speed (pixels per scroll action)
+# Examples: 100 = slow, 150 = medium, 200 = fast, 300 = very fast
+SCROLL_AMOUNT_PX = 150
+
 # --- Win32 API Constants ---
 # These flags are used with the SetWindowDisplayAffinity function.
 # WDA_EXCLUDEFROMCAPTURE is a comprehensive flag that prevents the window from being
@@ -895,6 +900,16 @@ class WindowManager:
             self.send_interview_command("reset_interview")
             return False
 
+        def on_scroll_up():
+            """Scroll up (Alt+I)"""
+            self.send_scroll_command("up")
+            return False
+
+        def on_scroll_down():
+            """Scroll down (Alt+J)"""
+            self.send_scroll_command("down")
+            return False
+
         hotkey_map = {
             '<alt>+x': on_toggle_ghost,
             '<alt>+z': on_hide_show,
@@ -917,6 +932,8 @@ class WindowManager:
             '<alt>+<up>': on_move_up,          # Move window up
             '<alt>+<down>': on_move_down,      # Move window down
             '<alt>+o': on_reset_interview,     # Reset interview session
+            '<alt>+i': on_scroll_up,           # Scroll up
+            '<alt>+j': on_scroll_down,         # Scroll down
         }
         
         with keyboard.GlobalHotKeys(hotkey_map) as h:
@@ -1016,6 +1033,21 @@ class WindowManager:
         except Exception as e:
             print(f"❌ Error sending interview command: {e}")
 
+    def send_scroll_command(self, direction: str):
+        """Send scroll command to the application"""
+        try:
+            from datetime import datetime
+            print(f"📜 Global hotkey triggered: scroll_{direction} ({SCROLL_AMOUNT_PX}px)")
+            self._write_command_file({
+                "command": "scroll",
+                "direction": direction,
+                "amount": SCROLL_AMOUNT_PX,
+                "timestamp": datetime.now().isoformat(),
+                "source": "global_hotkey"
+            })
+        except Exception as e:
+            print(f"❌ Error sending scroll command: {e}")
+
     def _write_command_file(self, command_data: dict):
         """Write command to temp file for inter-process communication"""
         import tempfile
@@ -1041,6 +1073,8 @@ class WindowManager:
         print("   Alt+X: Toggle ghost mode (click-through)")
         print("   Alt+Z: Toggle window visibility (stealth - no focus)")
         print("   Alt+Arrow Keys: Move window (stealth - no focus)")
+        print("   Alt+I: Scroll up (smooth)")
+        print("   Alt+J: Scroll down (smooth)")
         print("   Alt+V: Toggle vision mode")
         print("   Alt+S: Capture screenshot")
         print("   Alt+P: Process screenshots with AI")
