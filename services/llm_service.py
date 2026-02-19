@@ -6,17 +6,17 @@ from openai import AsyncOpenAI, APIStatusError
 from core.config import settings
 from core.prompts import get_interview_answer_prompt, get_quick_response_prompt
 from services.context_manager import PersistentContextManager
+import threading
 
 # --- Enhanced LLMManager Class ---
 
 class LLMManager:
     """Enhanced LLM Manager with persistent context support and error recovery."""
     
-    def __init__(self, provider_name: str, base_url: str, api_key: str, model_name: str, request_params: Optional[Dict[str, Any]] = None):
+    def __init__(self, provider_name: str, base_url: str, api_key: str, model_name: str, request_params: Optional[Dict[str, Any]] = None, api_keys: Optional[List[str]] = None):
         self.provider_name = provider_name
         self.model_name = model_name
         self.base_url = base_url
-        self.api_key = api_key
         self.request_params = request_params or {}
         self.context_manager = None  # Will be shared from MultiLLMManager
         self.is_healthy = True
@@ -24,14 +24,32 @@ class LLMManager:
         self.error_count = 0
         self.last_success_time = datetime.now()
         
+        # Key rotation support
+        self.api_keys = api_keys if api_keys and len(api_keys) > 0 else [api_key]
+        self.api_key = self.api_keys[0]  # Current active key
+        self._key_index = 0
+        self._key_lock = threading.Lock()
+        self._request_count = 0
+        
         try:
-            self.client = AsyncOpenAI(base_url=base_url, api_key=api_key)
-            print(f"✅ LLMManager initialized for: {self.provider_name} - {self.model_name}")
+            self.client = AsyncOpenAI(base_url=base_url, api_key=self.api_key)
+            print(f"✅ LLMManager initialized for: {self.provider_name} - {self.model_name} ({len(self.api_keys)} keys available)")
         except Exception as e:
             self.client = None
             self.is_healthy = False
             self.last_error = str(e)
             print(f"❌ CRITICAL: Failed to initialize LLMManager for {self.provider_name}: {e}")
+
+    def _rotate_key(self):
+        """Rotate to the next API key using round-robin."""
+        if len(self.api_keys) <= 1:
+            return
+        with self._key_lock:
+            self._key_index = (self._key_index + 1) % len(self.api_keys)
+            self.api_key = self.api_keys[self._key_index]
+            self.client = AsyncOpenAI(base_url=self.base_url, api_key=self.api_key)
+            self._request_count += 1
+            print(f"🔑 Key rotation [{self.provider_name}]: using key index {self._key_index}/{len(self.api_keys)}")
 
     def set_context_manager(self, context_manager: PersistentContextManager):
         """Set the shared context manager"""
@@ -61,7 +79,7 @@ class LLMManager:
             return False
 
     async def get_ai_answer(self, question: str, stream_callback=None) -> Tuple[str, Dict[str, Any]]:
-        """Get AI answer with comprehensive error handling and optional streaming"""
+        """Get AI answer with instant key rotation on any error — zero delay retries."""
         if not self.client:
             return "I'm sorry, the AI service is not available at this time.", {
                 "error": "No client available",
@@ -76,145 +94,113 @@ class LLMManager:
                 "model": self.model_name
             }
         
-        try:
-            # Add question to conversation history
-            self.context_manager.add_conversation_exchange(question)
-            
-            # Generate prompt with persistent context
-            prompt = get_interview_answer_prompt(question, self.context_manager)
-            
-            print(f"🎯 Processing with {self.provider_name}-{self.model_name}: '{question[:100]}...'")
-            
-            # --- API Call Logic with Provider Routing ---
-            
-            # Base parameters for the API call
-            api_params = {
-                "messages": [{"role": "user", "content": prompt}],
-                "model": self.model_name,
-                "temperature": 0.3,
-                "top_p": 0.85,
-                "max_tokens": 8000
-            }
-
-            # Add provider-specific routing if available
-            if self.request_params:
-                print(f"INFO: Using custom request params for {self.provider_name}: {self.request_params}")
+        # Add question to conversation history (once, before retry loop)
+        self.context_manager.add_conversation_exchange(question)
+        
+        # Generate prompt with persistent context
+        prompt = get_interview_answer_prompt(question, self.context_manager)
+        
+        print(f"🎯 Processing with {self.provider_name}-{self.model_name}: '{question[:100]}...'")
+        
+        # Try all available keys — instant retry on any error
+        max_attempts = len(self.api_keys)
+        last_error = None
+        
+        for attempt in range(max_attempts):
+            try:
+                # Rotate key for each attempt (first attempt uses current key)
+                if attempt > 0:
+                    self._rotate_key()
+                    print(f"🔄 Instant retry attempt {attempt+1}/{max_attempts} with next key for {self.provider_name}")
                 
-                # For OpenRouter, use extra_body to pass provider routing
-                if self.provider_name == "OpenRouter" and "provider" in self.request_params:
-                    api_params["extra_body"] = self.request_params
-                    print(f"INFO: Using extra_body for OpenRouter provider routing")
-                else:
-                    # For other providers, add parameters directly
-                    api_params.update(self.request_params)
+                # Build API params
+                api_params = {
+                    "messages": [{"role": "user", "content": prompt}],
+                    "model": self.model_name,
+                    "temperature": 0.3,
+                    "top_p": 0.85,
+                    "max_tokens": 8000
+                }
 
-            # Debug logging for API parameters
-            print(f"DEBUG: Final API params for {self.provider_name}:")
-            print(f"  - Model: {api_params.get('model')}")
-            print(f"  - Has extra_body: {'extra_body' in api_params}")
-            if 'extra_body' in api_params:
-                print(f"  - Extra body: {api_params['extra_body']}")
+                # Add provider-specific routing if available
+                if self.request_params:
+                    if self.provider_name == "OpenRouter" and "provider" in self.request_params:
+                        api_params["extra_body"] = self.request_params
+                    else:
+                        api_params.update(self.request_params)
 
-            # Determine if streaming is requested
-            use_streaming = stream_callback is not None
+                # Determine if streaming is requested
+                use_streaming = stream_callback is not None
 
-            if use_streaming:
-                api_params["stream"] = True
-                full_answer = ""
-                streaming_active = True
-                try:
-                    async for chunk in await self.client.chat.completions.create(**api_params):
-                        if not streaming_active:
-                            print("⚠️ Streaming stopped due to callback failure")
-                            break
-                        
-                        if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
-                            content_chunk = chunk.choices[0].delta.content
-                            full_answer += content_chunk
-                            if stream_callback:
-                                try:
-                                    callback_result = await stream_callback(content_chunk, "chunk")
-                                    if callback_result is False:
-                                        print("⚠️ Stream callback returned False, stopping stream.")
+                if use_streaming:
+                    api_params["stream"] = True
+                    full_answer = ""
+                    streaming_active = True
+                    try:
+                        async for chunk in await self.client.chat.completions.create(**api_params):
+                            if not streaming_active:
+                                break
+                            
+                            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                                content_chunk = chunk.choices[0].delta.content
+                                full_answer += content_chunk
+                                if stream_callback:
+                                    try:
+                                        callback_result = await stream_callback(content_chunk, "chunk")
+                                        if callback_result is False:
+                                            streaming_active = False
+                                            break
+                                    except Exception as e:
                                         streaming_active = False
                                         break
-                                except Exception as e:
-                                    print(f"⚠️ Stream callback error, stopping stream: {e}")
-                                    streaming_active = False
-                                    break
-                    answer = full_answer.strip()
+                        answer = full_answer.strip()
 
-                except Exception as e:
-                    print(f"⚠️ Streaming failed for {self.provider_name}, falling back to non-streaming: {e}")
-                    api_params.pop("stream", None) # Ensure stream is off for fallback
+                    except Exception as stream_err:
+                        print(f"⚠️ Streaming failed for {self.provider_name} key #{self._key_index}: {stream_err}")
+                        raise stream_err  # Let the outer retry loop handle it
+                else:
+                    # Non-streaming API call
                     chat_completion = await asyncio.wait_for(
                         self.client.chat.completions.create(**api_params),
                         timeout=30.0
                     )
                     answer = chat_completion.choices[0].message.content.strip()
-            else:
-                # Non-streaming API call
-                chat_completion = await asyncio.wait_for(
-                    self.client.chat.completions.create(**api_params),
-                    timeout=30.0
-                )
-                answer = chat_completion.choices[0].message.content.strip()
-            
-            # Add AI response to conversation history
-            self.context_manager.add_ai_response(answer, "normal")
-            
-            # Update health status
-            self.is_healthy = True
-            self.error_count = 0
-            self.last_success_time = datetime.now()
-            
-            return answer, {
-                "success": True,
-                "provider": self.provider_name,
-                "model": self.model_name,
-                "response_time": datetime.now().isoformat()
-            }
-            
-        except asyncio.TimeoutError:
-            error_msg = f"Request timeout for {self.provider_name}. Please try again."
-            self.is_healthy = False
-            self.last_error = "Request timeout"
-            self.error_count += 1
-            print(f"⏱️ TIMEOUT: {self.provider_name}-{self.model_name} request timed out")
-            
-            return error_msg, {
-                "error": "timeout",
-                "provider": self.provider_name,
-                "model": self.model_name
-            }
-            
-        except APIStatusError as e:
-            error_msg = f"API error from {self.provider_name}: {e.message}"
-            self.is_healthy = False
-            self.last_error = f"API Error: {e.status_code} - {e.message}"
-            self.error_count += 1
-            print(f"🚨 API ERROR: {self.provider_name}-{self.model_name}: {e.status_code} - {e.message}")
-            
-            return error_msg, {
-                "error": "api_error",
-                "status_code": e.status_code,
-                "provider": self.provider_name,
-                "model": self.model_name
-            }
-            
-        except Exception as e:
-            error_msg = f"Unexpected error from {self.provider_name}. Please try switching models."
-            self.is_healthy = False
-            self.last_error = str(e)
-            self.error_count += 1
-            print(f"❌ UNEXPECTED ERROR: {self.provider_name}-{self.model_name}: {e}")
-            
-            return error_msg, {
-                "error": "unexpected_error",
-                "message": str(e),
-                "provider": self.provider_name,
-                "model": self.model_name
-            }
+                
+                # Success! Add AI response and return
+                self.context_manager.add_ai_response(answer, "normal")
+                self.is_healthy = True
+                self.error_count = 0
+                self.last_success_time = datetime.now()
+                
+                return answer, {
+                    "success": True,
+                    "provider": self.provider_name,
+                    "model": self.model_name,
+                    "key_rotated": attempt > 0,
+                    "attempt": attempt + 1,
+                    "response_time": datetime.now().isoformat()
+                }
+                
+            except Exception as e:
+                last_error = e
+                err_str = str(e)[:100]
+                print(f"⚡ Key #{self._key_index} failed for {self.provider_name}: {err_str}")
+                # Continue to next key immediately — no delay
+                continue
+        
+        # All keys exhausted
+        error_msg = f"All {max_attempts} keys failed for {self.provider_name}. Last error: {str(last_error)[:100]}"
+        self.is_healthy = False
+        self.last_error = str(last_error)
+        self.error_count += 1
+        print(f"🚨 ALL KEYS EXHAUSTED: {self.provider_name}-{self.model_name}")
+        
+        return error_msg, {
+            "error": "all_keys_failed",
+            "attempts": max_attempts,
+            "provider": self.provider_name,
+            "model": self.model_name
+        }
 
     def process_candidate_response(self, response: str):
         """Processes the candidate's response to add to conversation context."""
@@ -275,9 +261,10 @@ class MultiLLMManager:
             self.providers["primary"] = LLMManager(
                 provider_name=primary_provider_config["name"],
                 base_url=primary_provider_config["baseURL"],
-                api_key=primary_provider_config["apiKey"],
+                api_key=primary_provider_config.get("apiKey", primary_provider_config.get("apiKeys", [""])[0]),
                 model_name=primary_model_config["modelName"],
-                request_params=primary_model_config.get("requestParams")
+                request_params=primary_model_config.get("requestParams"),
+                api_keys=primary_provider_config.get("apiKeys")
             )
             self.providers["primary"].set_context_manager(self.shared_context)
             
@@ -299,9 +286,10 @@ class MultiLLMManager:
                     self.providers["secondary"] = LLMManager(
                         provider_name=secondary_provider_config["name"],
                         base_url=secondary_provider_config["baseURL"],
-                        api_key=secondary_provider_config["apiKey"],
+                        api_key=secondary_provider_config.get("apiKey", secondary_provider_config.get("apiKeys", [""])[0]),
                         model_name=secondary_model_config["modelName"],
-                        request_params=secondary_model_config.get("requestParams")
+                        request_params=secondary_model_config.get("requestParams"),
+                        api_keys=secondary_provider_config.get("apiKeys")
                     )
                     self.providers["secondary"].set_context_manager(self.shared_context)
                     
@@ -516,7 +504,7 @@ async def verify_provider_connection(base_url: str, api_key: str, model_name: st
     """Verifies a connection to an AI provider without creating a full manager instance."""
     try:
         temp_client = AsyncOpenAI(base_url=base_url, api_key=api_key)
-        await asyncio.wait_for(temp_client.models.list(), timeout=10.0)
+        await asyncio.wait_for(temp_client.models.list(), timeout=20.0)
         print(f"✅ Connection to {base_url} with model {model_name} is valid.")
         return True
     except asyncio.TimeoutError:

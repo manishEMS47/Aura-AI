@@ -1,6 +1,7 @@
 import orjson
 import asyncio
 import base64
+import threading
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 from openai import AsyncOpenAI, APIStatusError
@@ -9,11 +10,10 @@ from core.config import settings
 class VisionManager:
     """Vision AI Manager for screenshot analysis and code problem solving"""
     
-    def __init__(self, provider_name: str, base_url: str, api_key: str, model_name: str, request_params: Optional[Dict[str, Any]] = None):
+    def __init__(self, provider_name: str, base_url: str, api_key: str, model_name: str, request_params: Optional[Dict[str, Any]] = None, api_keys: Optional[List[str]] = None):
         self.provider_name = provider_name
         self.model_name = model_name
         self.base_url = base_url
-        self.api_key = api_key
         self.request_params = request_params or {}
         self.is_healthy = True
         self.last_error = None
@@ -21,14 +21,32 @@ class VisionManager:
         self.last_success_time = datetime.now()
         self.context_manager = None  # Will be set by VisionService
         
+        # Key rotation support
+        self.api_keys = api_keys if api_keys and len(api_keys) > 0 else [api_key]
+        self.api_key = self.api_keys[0]
+        self._key_index = 0
+        self._key_lock = threading.Lock()
+        self._request_count = 0
+        
         try:
-            self.client = AsyncOpenAI(base_url=base_url, api_key=api_key)
-            print(f"✅ VisionManager initialized for: {self.provider_name} - {self.model_name}")
+            self.client = AsyncOpenAI(base_url=base_url, api_key=self.api_key)
+            print(f"✅ VisionManager initialized for: {self.provider_name} - {self.model_name} ({len(self.api_keys)} keys available)")
         except Exception as e:
             self.client = None
             self.is_healthy = False
             self.last_error = str(e)
             print(f"❌ CRITICAL: Failed to initialize VisionManager for {self.provider_name}: {e}")
+
+    def _rotate_key(self):
+        """Rotate to the next API key using round-robin."""
+        if len(self.api_keys) <= 1:
+            return
+        with self._key_lock:
+            self._key_index = (self._key_index + 1) % len(self.api_keys)
+            self.api_key = self.api_keys[self._key_index]
+            self.client = AsyncOpenAI(base_url=self.base_url, api_key=self.api_key)
+            self._request_count += 1
+            print(f"🔑 Vision key rotation [{self.provider_name}]: using key index {self._key_index}/{len(self.api_keys)}")
 
     def set_context_manager(self, context_manager):
         """Set the shared context manager"""
@@ -58,7 +76,7 @@ class VisionManager:
             return False
 
     async def analyze_screenshots(self, prompt: str, screenshots: List[str], languages: List[str] = None) -> Tuple[str, Dict[str, Any]]:
-        """Analyze screenshots with vision AI and provide comprehensive coding assistance"""
+        """Analyze screenshots with instant key rotation on any error — zero delay retries."""
         if not self.client:
             return "I'm sorry, the vision AI service is not available at this time.", {
                 "error": "No client available",
@@ -66,124 +84,95 @@ class VisionManager:
                 "model": self.model_name
             }
         
-        try:
-            # Prepare the message content with text and images
-            content = [{"type": "text", "text": prompt}]
-            
-            # Add screenshots to the content
-            for i, screenshot_data_url in enumerate(screenshots):
-                # Ensure proper data URL format
-                if not screenshot_data_url.startswith('data:image/'):
-                    screenshot_data_url = f"data:image/jpeg;base64,{screenshot_data_url}"
+        # Prepare the message content with text and images (once, before retry loop)
+        content = [{"type": "text", "text": prompt}]
+        for i, screenshot_data_url in enumerate(screenshots):
+            if not screenshot_data_url.startswith('data:image/'):
+                screenshot_data_url = f"data:image/jpeg;base64,{screenshot_data_url}"
+            content.append({
+                "type": "image_url",
+                "image_url": {"url": screenshot_data_url}
+            })
+        
+        print(f"🔍 Analyzing {len(screenshots)} screenshots with {self.provider_name}-{self.model_name}")
+        
+        # Try all available keys — instant retry on any error
+        max_attempts = len(self.api_keys)
+        last_error = None
+        
+        for attempt in range(max_attempts):
+            try:
+                # Rotate key for each attempt (first attempt uses current key)
+                if attempt > 0:
+                    self._rotate_key()
+                    print(f"🔄 Vision instant retry attempt {attempt+1}/{max_attempts} with next key for {self.provider_name}")
                 
-                content.append({
-                    "type": "image_url",
-                    "image_url": {"url": screenshot_data_url}
-                })
-            
-            print(f"🔍 Analyzing {len(screenshots)} screenshots with {self.provider_name}-{self.model_name}")
-            
-            # Base parameters for the API call
-            api_params = {
-                "messages": [{
-                    "role": "user",
-                    "content": content
-                }],
-                "model": self.model_name,
-                "temperature": 0.45,  # Lower temperature for more focused analysis
-                "max_tokens": 8100,
-                "top_p": 0.95
-            }
+                # Build API params
+                api_params = {
+                    "messages": [{"role": "user", "content": content}],
+                    "model": self.model_name,
+                    "temperature": 0.45,
+                    "max_tokens": 8100,
+                    "top_p": 0.95
+                }
 
-            # Add provider-specific routing if available
-            if self.request_params:
-                print(f"INFO: Using custom request params for {self.provider_name} vision: {self.request_params}")
+                # Add provider-specific routing if available
+                if self.request_params:
+                    if self.provider_name == "OpenRouter" and "provider" in self.request_params:
+                        api_params["extra_body"] = self.request_params
+                    else:
+                        api_params.update(self.request_params)
                 
-                # For OpenRouter, use extra_body to pass provider routing
-                if self.provider_name == "OpenRouter" and "provider" in self.request_params:
-                    api_params["extra_body"] = self.request_params
-                    print(f"INFO: Using extra_body for OpenRouter vision provider routing")
-                else:
-                    # For other providers, add parameters directly
-                    api_params.update(self.request_params)
-
-            # Debug logging for API parameters
-            print(f"DEBUG: Final vision API params for {self.provider_name}:")
-            print(f"  - Model: {api_params.get('model')}")
-            print(f"  - Has extra_body: {'extra_body' in api_params}")
-            if 'extra_body' in api_params:
-                print(f"  - Extra body: {api_params['extra_body']}")
-            
-            # Make API call with timeout
-            chat_completion = await asyncio.wait_for(
-                self.client.chat.completions.create(**api_params),
-                timeout=75.0  # 75 second timeout for vision analysis
-            )
-            
-            analysis = chat_completion.choices[0].message.content.strip()
-            
-            # Add vision analysis to conversation history if context manager available
-            if self.context_manager:
-                self.context_manager.add_ai_response(analysis, "vision")
-            
-            # Update health status
-            self.is_healthy = True
-            self.error_count = 0
-            self.last_success_time = datetime.now()
-            
-            return analysis, {
-                "success": True,
-                "provider": self.provider_name,
-                "model": self.model_name,
-                "screenshot_count": len(screenshots),
-                "languages": languages or [],
-                "response_time": datetime.now().isoformat(),
-                "analysis_length": len(analysis)
-            }
-            
-        except asyncio.TimeoutError:
-            error_msg = f"Vision analysis timeout for {self.provider_name}. Request exceeded 45 seconds - try with fewer screenshots or simpler images."
-            self.is_healthy = False
-            self.last_error = "Request timeout (45s)"
-            self.error_count += 1
-            print(f"⏱️ TIMEOUT: {self.provider_name}-{self.model_name} vision analysis timed out after 45s")
-            
-            return error_msg, {
-                "error": "timeout",
-                "provider": self.provider_name,
-                "model": self.model_name,
-                "screenshot_count": len(screenshots)
-            }
-            
-        except APIStatusError as e:
-            error_msg = f"Vision API error from {self.provider_name}: {e.message}"
-            self.is_healthy = False
-            self.last_error = f"API Error: {e.status_code} - {e.message}"
-            self.error_count += 1
-            print(f"🚨 API ERROR: {self.provider_name}-{self.model_name}: {e.status_code} - {e.message}")
-            
-            return error_msg, {
-                "error": "api_error",
-                "status_code": e.status_code,
-                "provider": self.provider_name,
-                "model": self.model_name,
-                "screenshot_count": len(screenshots)
-            }
-            
-        except Exception as e:
-            error_msg = f"Unexpected error during vision analysis with {self.provider_name}. Please try again."
-            self.is_healthy = False
-            self.last_error = str(e)
-            self.error_count += 1
-            print(f"❌ UNEXPECTED ERROR: {self.provider_name}-{self.model_name} vision analysis: {e}")
-            
-            return error_msg, {
-                "error": "unexpected_error",
-                "message": str(e),
-                "provider": self.provider_name,
-                "model": self.model_name,
-                "screenshot_count": len(screenshots)
-            }
+                # Make API call
+                chat_completion = await asyncio.wait_for(
+                    self.client.chat.completions.create(**api_params),
+                    timeout=75.0
+                )
+                
+                analysis = chat_completion.choices[0].message.content.strip()
+                
+                # Add vision analysis to conversation history if context manager available
+                if self.context_manager:
+                    self.context_manager.add_ai_response(analysis, "vision")
+                
+                # Success!
+                self.is_healthy = True
+                self.error_count = 0
+                self.last_success_time = datetime.now()
+                
+                return analysis, {
+                    "success": True,
+                    "provider": self.provider_name,
+                    "model": self.model_name,
+                    "key_rotated": attempt > 0,
+                    "attempt": attempt + 1,
+                    "screenshot_count": len(screenshots),
+                    "languages": languages or [],
+                    "response_time": datetime.now().isoformat(),
+                    "analysis_length": len(analysis)
+                }
+                
+            except Exception as e:
+                last_error = e
+                err_str = str(e)[:100]
+                print(f"⚡ Vision key #{self._key_index} failed for {self.provider_name}: {err_str}")
+                # Continue to next key immediately — no delay
+                continue
+        
+        # All keys exhausted
+        error_msg = f"All {max_attempts} vision keys failed for {self.provider_name}. Last error: {str(last_error)[:100]}"
+        self.is_healthy = False
+        self.last_error = str(last_error)
+        self.error_count += 1
+        print(f"🚨 ALL VISION KEYS EXHAUSTED: {self.provider_name}-{self.model_name}")
+        
+        return error_msg, {
+            "error": "all_keys_failed",
+            "attempts": max_attempts,
+            "provider": self.provider_name,
+            "model": self.model_name,
+            "screenshot_count": len(screenshots)
+        }
 
     def get_status(self) -> Dict[str, Any]:
         """Get current status of this vision manager"""
@@ -243,9 +232,10 @@ class VisionService:
                     manager = VisionManager(
                         provider_name=provider_name,
                         base_url=provider_config["baseURL"],
-                        api_key=provider_config["apiKey"],
+                        api_key=provider_config.get("apiKey", provider_config.get("apiKeys", [""])[0]),
                         model_name=model_config["modelName"],
-                        request_params=model_config.get("requestParams")
+                        request_params=model_config.get("requestParams"),
+                        api_keys=provider_config.get("apiKeys")
                     )
                     if self.context_manager:
                         manager.set_context_manager(self.context_manager)
@@ -461,7 +451,7 @@ async def verify_vision_provider_connection(base_url: str, api_key: str, model_n
         temp_client = AsyncOpenAI(base_url=base_url, api_key=api_key)
         
         # Just test basic connectivity with models.list() - don't do complex vision tests
-        await asyncio.wait_for(temp_client.models.list(), timeout=10.0)
+        await asyncio.wait_for(temp_client.models.list(), timeout=20.0)
         
         # For OpenRouter, note that we have provider routing but skip complex testing
         if request_params and "provider" in request_params:

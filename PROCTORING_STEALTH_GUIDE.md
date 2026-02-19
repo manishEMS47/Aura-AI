@@ -45,13 +45,19 @@ Proctoring platforms like **Proctorio**, **Honorlock**, **ExamSoft**, **Respondu
 
 #### ✅ SAFE Actions (Undetectable)
 - `Alt+Z` - Show/hide window (no focus change)
-- `Alt+Arrow Keys` - Move window position (no focus change) **[20px increments]**
+- `Alt+Left/Right` - Move window horizontally **[20px increments]**
+- `Alt+I` / `Alt+J` - Move window up / down **[20px increments]**
+- `Alt+Up/Down` - Scroll window content (hold for continuous)
 - `Alt+R` - Reset screenshot queue (safe internal function)
 - `Alt+O` - Reset interview session (safe internal function)
 - `Alt+1/2/3` - Adjust transparency (40%/70%/100%)
 - `Alt+V` - Toggle vision mode
 - `Alt+S` - Capture screenshot
 - `Alt+P` - Process screenshots with AI
+- `Alt+T` - Switch vision model
+- `Alt+Q/W/E` - Switch primary / secondary / auto-select AI
+- `Alt+M` - Toggle microphone mute
+- `Alt+U` - Toggle universal mute (pause)
 - All other global hotkeys listed below
 
 #### ⚠️ CAUTION Actions (Use Carefully)
@@ -70,7 +76,13 @@ Proctoring platforms like **Proctorio**, **Honorlock**, **ExamSoft**, **Respondu
 - `Alt+Shift+S` - **Enable proctoring stealth mode** (one-time setup)
 - `Alt+Z` - Toggle visibility (stealth - no focus change)
 - `Alt+X` - Toggle ghost mode (click-through)
-- `Alt+Left/Right/Up/Down` - Move window position (stealth - no focus change)
+- `Alt+Left` / `Alt+Right` - Move window left / right (stealth, 20px)
+- `Alt+I` - Move window up (stealth, 20px)
+- `Alt+J` - Move window down (stealth, 20px)
+
+### Scrolling
+- `Alt+Up` - Continuous scroll up (hold to keep scrolling, release to stop)
+- `Alt+Down` - Continuous scroll down (hold to keep scrolling, release to stop)
 
 ### Transparency Control  
 - `Alt+1` - Transparent (40% opacity) - best for exams
@@ -105,8 +117,9 @@ Proctoring platforms like **Proctorio**, **Honorlock**, **ExamSoft**, **Respondu
 2. Use only global hotkeys to interact with AI assistant
 3. **Never click on the AI window** - it's click-through anyway
 4. Use `Alt+Z` to show/hide as needed
-5. Use `Alt+Arrow Keys` to reposition window as needed
-6. Use `Alt+1` for maximum stealth (40% transparency)
+5. Use `Alt+Left/Right` and `Alt+I/J` to reposition window
+6. Use `Alt+Up/Down` to scroll content without clicking
+7. Use `Alt+1` for maximum stealth (40% transparency)
 
 ### Emergency Hide
 - `Alt+Z` - Instantly hide window without focus change
@@ -189,10 +202,16 @@ WDA_EXCLUDEFROMCAPTURE - Excludes from all capture methods
 
 ### Stealth Window Movement
 - Use `Alt+Left/Right` - Move horizontally (20px per press)
-- Use `Alt+Up/Down` - Move vertically (20px per press)
+- Use `Alt+I` - Move window up (20px per press)
+- Use `Alt+J` - Move window down (20px per press)
 - **No focus change** - Window moves without activation
 - **Perfect for repositioning** during sessions without detection
-- **Quick adjustment** - Find optimal position for current content
+
+### Stealth Content Scrolling
+- Use `Alt+Up` - Scroll content up (hold for continuous)
+- Use `Alt+Down` - Scroll content down (hold for continuous)
+- **No focus change** - Content scrolls without activating window
+- **Hold and release** - Scrolling continues while held, stops on release
 
 ## 🔍 Testing Your Setup
 

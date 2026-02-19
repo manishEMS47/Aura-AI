@@ -1,171 +1,101 @@
 export const devData = {
-    name: 'Ritik',
-    company: 'Nucleus Institute Corp',
-    role: 'Software Engineer',
+    name: 'Alex Chen',
+    company: 'Horizon Technologies',
+    role: 'Senior Full Stack Engineer',
     focus: 'coding',
-    resume: `RITIK
-Java Backend Developer & Full Stack Engineer
-Contact: +91 9991448771 | ritik135001@gmail.com | Portfolio | LinkedIn | GitHub | VitalBite
+    resume: `ALEX CHEN
+Senior Full Stack Engineer
+Contact: alex.chen@email.com | LinkedIn | GitHub
 
 PROFESSIONAL SUMMARY
-Java Backend Developer with 2+ years of experience building scalable enterprise applications and cloud solutions. Proven expertise in Java ecosystem (Spring Boot, Spring Framework), RESTful API development, and database management. Strong background in AWS infrastructure, microservices architecture, and full-stack development. Track record of delivering high-quality enterprise solutions for clients including Amazon and Innovan.
+Full Stack Engineer with 4+ years of experience building scalable web applications and cloud-native services. Expertise in React, Node.js, Python, and AWS. Proven ability to architect microservices, optimize database performance, and lead cross-functional engineering teams. Passionate about clean code, developer experience, and shipping products that delight users.
 
 TECHNICAL SKILLS
-Backend & Core:
-
-Java, Spring Boot, Spring Framework, Spring Security, Spring Data JPA
-RESTful APIs, Microservices Architecture, Web Services (SOAP/REST)
-Maven, Gradle, JUnit, Mockito, TestNG
-
-Databases & Data:
-
-PostgreSQL, MongoDB, MySQL, Oracle DB
-JPA/Hibernate, Database Design, Query Optimization
-Data Modeling, Database Migration, Performance Tuning
-
-Cloud & DevOps:
-
-AWS (CDK, CloudWatch, EC2, RDS, S3), Docker, CI/CD
-Jenkins, Git, GitLab, Bitbucket
-Infrastructure as Code, Monitoring & Logging
-
-Frontend & Full Stack:
-
-JavaScript, TypeScript, React, Vue.js, Angular
-HTML5, CSS3, Tailwind CSS, Responsive Design
-
-Additional Technologies:
-
-AI Integration (OpenAI/Claude/Gemini APIs), Node.js, Python
-Agile Methodologies, Jira, Confluence, Postman
-
+Frontend: React, Next.js, TypeScript, Vue.js, Tailwind CSS, HTML5, CSS3
+Backend: Node.js, Python, FastAPI, Express.js, GraphQL, REST APIs
+Databases: PostgreSQL, MongoDB, Redis, DynamoDB, Elasticsearch
+Cloud & DevOps: AWS (Lambda, ECS, S3, CloudFront), Docker, Kubernetes, Terraform, CI/CD
+Tools: Git, Jira, Figma, Datadog, Sentry, Postman
 
 PROFESSIONAL EXPERIENCE
-SOFTWARE ENGINEER | TEKsystems Global Services
-September 2022 – Present
-Amazon Inc. | AWS Infrastructure Optimization & Java Code Migration
-February 2024 – December 2024
+SENIOR SOFTWARE ENGINEER | CloudStream Inc.
+March 2023 – Present
 
-Streamlined AWS infrastructure using Amazon CDK with TypeScript and Java applications
-Implemented CloudWatch monitoring and alerts for Java microservices, ensuring 99.9% system availability
-Led Java code migration projects, resolving compatibility issues and optimizing performance
-Collaborated with cross-functional teams to optimize resource management and deployment strategies
-Technologies: Java, AWS CDK, TypeScript, CloudWatch, CloudFormation
+Architected and built a real-time analytics dashboard serving 50K+ daily active users
+Led migration from monolith to microservices, reducing deployment time by 70%
+Implemented event-driven architecture with Kafka for asynchronous data processing
+Mentored 3 junior engineers and established code review best practices
+Technologies: React, TypeScript, Node.js, PostgreSQL, AWS, Docker, Kafka
 
-Innovan | Government Benefits & Eligibility Platform (Java Backend Focus)
-April 2023 – January 2024
+SOFTWARE ENGINEER | DataBridge Solutions
+June 2021 – February 2023
 
-Developed robust backend services using Spring Boot and Java for government benefits platform
-Designed and implemented RESTful APIs serving critical eligibility and benefits calculation logic
-Architected database layer with Oracle DB and MongoDB integration using Spring Data JPA
-Built microservices architecture with Docker containerization and Jenkins CI/CD pipelines
-Implemented security features using Spring Security for user authentication and authorization
-Led sprint refinements and technical discussions with stakeholders
-Recognition: Certificate of Appreciation from Innovan & Spot Award from TEKsystems
-Technologies: Java, Spring Boot, Spring Security, Spring Data JPA, Oracle DB, MongoDB, Docker, Jenkins
+Built RESTful APIs serving financial data to 200+ enterprise clients
+Designed and optimized PostgreSQL schemas, improving query performance by 45%
+Developed automated testing pipeline achieving 92% code coverage
+Collaborated with product and design teams on feature planning and sprint execution
+Technologies: Python, FastAPI, PostgreSQL, Redis, AWS Lambda, React
 
-Ruan | Fleet Management System Backend Enhancement
-November 2022 – February 2023
+JUNIOR DEVELOPER | WebCraft Studios
+January 2020 – May 2021
 
-Enhanced backend APIs for fleet management system, improving data processing efficiency
-Implemented database optimization strategies with PostgreSQL, reducing query response times by 40%
-Developed comprehensive API testing suite using Postman and JUnit
-Collaborated on bug resolution and system stability improvements
-Recognition: Spot Award from TEKsystems
-Technologies: Java, PostgreSQL, RESTful APIs, JUnit, Postman
-
+Developed responsive web applications for e-commerce and SaaS clients
+Built reusable component libraries with React and Storybook
+Integrated third-party APIs including Stripe, SendGrid, and Twilio
+Technologies: React, Node.js, MongoDB, Express.js, Heroku
 
 PROJECTS
-VitalBite | AI-Powered Nutrition Tracker with Java Backend
-January 2025 – February 2025
-
-Developed full-stack nutrition tracking application with Java Spring Boot backend
-Implemented RESTful API architecture for nutrition data management and AI integration
-Integrated Google Gemini AI with custom Java service layer for intelligent food recognition
-Built comprehensive backend with Supabase integration and real-time data synchronization
-Developed PWA capabilities with offline support and background sync
-Live demo: Vitalbite
-Technologies: Java, Spring Boot, React, TypeScript, Google Gemini AI, Supabase, PostgreSQL
-
-Additional Projects
-
-Enterprise Java Applications: Built various Spring Boot microservices with database integration
-API Development: Created scalable RESTful APIs with comprehensive documentation
-Database Projects: Designed and optimized database schemas for high-performance applications
-
-Additional featured projects available on GitHub
+TaskFlow | AI-Powered Project Management Tool
+Built a full-stack project management app with AI task prioritization
+Integrated OpenAI API for smart task descriptions and time estimates
+Technologies: Next.js, TypeScript, Prisma, PostgreSQL, OpenAI API
 
 EDUCATION
-Bachelor of Technology in Computer Science Engineering
-Chandigarh Group of Colleges, India
-2018 – 2022
-
-ADDITIONAL SKILLS & CERTIFICATIONS
-
-Java Technologies: Expert in Java 8+, Lambda expressions, Streams API, Collections Framework
-Architecture Patterns: MVC, Repository Pattern, Dependency Injection, Design Patterns
-API Development: OpenAPI/Swagger documentation, API versioning, Rate limiting
-Performance: JVM tuning, Memory management, Profiling, Load testing
-Security: OWASP best practices, JWT, OAuth2, Data encryption
-Soft Skills: Technical leadership, Client communication, Code reviews, Mentoring
-Languages: English (Fluent), Hindi (Native)`,
+Bachelor of Science in Computer Science
+University of Washington, Seattle
+2016 – 2020`,
     objectives: `About the job
-Job Title: AI/ML Development Engineer
-Company: Nucleus Institute Corp.
+Job Title: Senior Full Stack Engineer
+Company: Horizon Technologies
 Location: Remote (Full-Time)
 
+About Us:
+Horizon Technologies builds next-generation developer tools that help engineering teams ship faster and with more confidence. Our platform is used by thousands of companies worldwide.
 
-Company Overview:
-
-At Nucleus Institute, we are dedicated to driving innovation through the creation of advanced AI agents designed to streamline operations and enhance efficiency across various business domains. Our AI solutions are engineered to think, learn, and adapt, automating complex processes while providing deep analytical insights that inform strategic decision-making.
-
-
-We are seeking a talented AI/ML Development Engineer to join our team. This role offers an exciting opportunity to work on groundbreaking AI/ML projects, crafting the intelligence systems that power our state-of-the-art AI Assistants.
-
+We are looking for a Senior Full Stack Engineer to join our Platform team and help build the future of our core product.
 
 Key Responsibilities:
 
+Design and implement new features across our React frontend and Node.js/Python backend
+Architect scalable microservices and RESTful APIs for high-traffic applications
+Collaborate with product managers, designers, and other engineers to ship high-quality features
+Optimize application performance, reliability, and observability
+Contribute to engineering culture through code reviews, documentation, and mentoring
+Participate in on-call rotation and incident response
 
+Requirements:
 
-AI Assistant Development: Lead the development of AI Assistants using Python, with a strong emphasis on Large Language Models (LLMs) and LangChain technologies.
-LangChain Expertise: Utilize LangChain Core, Langgraph, Langserve, and LangSmith for building and deploying AI applications, ensuring robust, stateful, and efficient architectures.
-Data Pipeline Construction: Build and optimize data pipelines for training and deploying AI models, with a focus on vector databases for efficient data handling.
-Backend & API Integration: Implement and manage backend services using FastAPI, and integrate AI features with cloud-based solutions for scalable deployment.
-Frontend Development: Develop responsive and intuitive web and mobile interfaces using TypeScript, React, React-Native, and Next.js, ensuring seamless user experiences.
-Model Training & Deployment: Utilize Hugging Face frameworks for training, fine-tuning, and deploying Transformer models, including BERT, GPT, and T5.
-Proprietary Model Integration: Work with leading AI models from OpenAI, Anthropic, Google, and Meta, focusing on API integration, fine-tuning, and prompt engineering.
-Cloud Platforms: Deploy AI solutions on Google Cloud Platform (GCP), with a strong understanding of services like Cloud Run, Cloud Build, and Firebase, as well as familiarity with AWS alternatives.
-Cross-functional Collaboration: Collaborate with cross-functional teams, effectively communicating technical concepts to both technical and non-technical stakeholders.
-Agile Methodologies: Participate in Agile development practices to ensure efficient and timely project delivery.
+4+ years of professional software engineering experience
+Strong proficiency in TypeScript, React, and modern frontend development
+Backend experience with Node.js or Python (FastAPI/Django)
+Experience with relational databases (PostgreSQL) and caching layers (Redis)
+Familiarity with cloud platforms (AWS preferred) and containerization (Docker/K8s)
+Excellent communication skills and collaborative mindset
+BS in Computer Science or equivalent practical experience
 
+Nice to Have:
 
-Qualifications:
-
-
-
-Programming Mastery: Proficiency in Python with a focus on AI/ML applications, including extensive experience with LLMs and LangChain for conversational agents.
-AI Frameworks: Strong knowledge of Hugging Face tools, including Transformers, Tokenizers, Datasets, and the Model Hub for state-of-the-art AI development.
-Backend & Frontend Expertise: Skilled in using FastAPI for backend development and TypeScript for managing web and mobile interfaces.
-Cloud Proficiency: Extensive experience with GCP services, with knowledge of AWS and Azure cloud platforms for deploying and managing AI-driven applications.
-Database Experience: Proficient in using vector databases like Pinecone and graph databases such as Neo4j, alongside NoSQL and SQL databases.
-Problem-Solving Skills: Demonstrated ability to analyze complex problems and develop innovative AI/ML solutions.
-Educational Background: Bachelor’s or Master’s degree in Computer Science or a related field, or equivalent practical experience.
-
-Why Join Us?
-
-
-
-As a key member of our team, you will have the opportunity to shape the future of AI by developing cutting-edge AI Assistants and other AI-driven solutions. If you’re passionate about Python programming, AI/ML development, and cloud technologies, we encourage you to apply and be a part of our journey to redefine digital interaction.
-
-
-Apply Today:`
+Experience with GraphQL, gRPC, or event-driven architectures
+Familiarity with AI/ML integration and LLM APIs
+Open source contributions
+Experience in developer tools or platform engineering`
 };
 
 import { devLog } from './config.js';
 
 export function autofillForTesting() {
     devLog("Autofilling form for testing...");
-    
+
     // Get form elements directly from DOM
     const onboardingForm = {
         name: document.getElementById('user-name'),
@@ -175,12 +105,12 @@ export function autofillForTesting() {
         resume: document.getElementById('user-resume'),
         objectives: document.getElementById('user-objectives'),
     };
-    
+
     // Check if elements exist before setting values
     if (onboardingForm.name) onboardingForm.name.value = devData.name;
     if (onboardingForm.company) onboardingForm.company.value = devData.company;
     if (onboardingForm.role) onboardingForm.role.value = devData.role;
-    
+
     if (onboardingForm.focusCheckboxes) {
         onboardingForm.focusCheckboxes.forEach(cb => {
             if (cb.value === devData.focus) {
@@ -191,6 +121,6 @@ export function autofillForTesting() {
 
     if (onboardingForm.resume) onboardingForm.resume.value = devData.resume;
     if (onboardingForm.objectives) onboardingForm.objectives.value = devData.objectives;
-    
+
     devLog("✅ Form autofilled successfully!");
 }

@@ -40,15 +40,23 @@ async def websocket_endpoint(websocket: WebSocket, session_id: Optional[str] = Q
             # Route message to the appropriate handler within the session
             handler = getattr(session, f"handle_{message_type}", None)
             if handler:
-                await handler(payload)
+                try:
+                    await handler(payload)
+                except Exception as handler_err:
+                    print(f"❌ Handler error in session {session.session_id} for '{message_type}': {handler_err}")
+                    try:
+                        await send_json(websocket, "error", {
+                            "message": f"Error processing '{message_type}': {str(handler_err)[:200]}",
+                            "type": message_type
+                        })
+                    except Exception:
+                        pass  # Don't crash if we can't send the error
             else:
                 print(f"⚠️ Unknown message type: {message_type}")
 
     except WebSocketDisconnect:
         print(f"🔌 WebSocket disconnected from session: {session.session_id}")
-        session.websocket = None # Detach the websocket, but keep the session alive
+        session.websocket = None
     except Exception as e:
         print(f"❌ Unhandled WebSocket error in session {session.session_id}: {e}")
         session.websocket = None
-    # Note: We are not cleaning up the session here.
-    # Sessions will be cleaned up by a separate timeout mechanism.

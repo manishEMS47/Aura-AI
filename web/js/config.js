@@ -53,4 +53,18 @@ export function devError(...args) {
 
 // Initialize configuration and export it
 export { loadConfig, appConfig };
-export default appConfig; 
+export default appConfig;
+
+/**
+ * Call this AFTER loadConfig() to suppress noisy console output in production.
+ * console.warn and console.error are always preserved.
+ */
+export function applyConsoleGate() {
+    if (!isDev()) {
+        const noop = () => {};
+        console.log = noop;
+        console.debug = noop;
+        console.info = noop;
+        // console.warn and console.error are intentionally left active
+    }
+}

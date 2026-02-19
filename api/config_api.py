@@ -6,6 +6,9 @@ from core.config import settings
 import window_manager
 from services.llm_service import verify_provider_connection
 from services.vision_service import verify_vision_provider_connection
+from core.env_utils import env_manager
+import shutil
+import os
 
 router = APIRouter()
 
@@ -18,6 +21,12 @@ class TransparencyPercentRequest(BaseModel):
 class ProviderVerifyRequest(BaseModel):
     name: str
     model: str
+
+class SaveProvidersRequest(BaseModel):
+    providers: list
+
+class SaveKeyRequest(BaseModel):
+    key: str
 
 @router.get("/api/config")
 async def get_config():
@@ -38,6 +47,13 @@ async def get_ai_providers():
     to the frontend, excluding sensitive API keys.
     """
     try:
+        if not os.path.exists("ai_providers.json"):
+            if os.path.exists("ai_providers.example.json"):
+                print("📝 ai_providers.json not found, creating from example...")
+                shutil.copy("ai_providers.example.json", "ai_providers.json")
+            else:
+                raise HTTPException(status_code=404, detail="ai_providers.json and example not found")
+
         async with aiofiles.open("ai_providers.json", "rb") as f:
             file_content = await f.read()
             providers = orjson.loads(file_content)
@@ -66,10 +82,58 @@ async def get_ai_providers():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error reading provider config: {e}")
 
+@router.get("/api/ai-providers/full")
+async def get_ai_providers_full():
+    """
+    Returns the full ai_providers.json INCLUDING API keys.
+    Used for the advanced configuration UI.
+    """
+    try:
+        if not os.path.exists("ai_providers.json"):
+             if os.path.exists("ai_providers.example.json"):
+                shutil.copy("ai_providers.example.json", "ai_providers.json")
+             else:
+                return []
+                
+        async with aiofiles.open("ai_providers.json", "rb") as f:
+            file_content = await f.read()
+            return orjson.loads(file_content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reading full provider config: {e}")
+
+@router.post("/api/save-ai-providers")
+async def save_ai_providers(request: SaveProvidersRequest):
+    """Saves the full provider configuration to ai_providers.json."""
+    try:
+        async with aiofiles.open("ai_providers.json", "wb") as f:
+            await f.write(orjson.dumps(request.providers, option=orjson.OPT_INDENT_2))
+        return {"success": True, "message": "AI Providers saved successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving provider config: {e}")
+
+@router.get("/api/deepgram-key")
+async def get_deepgram_key():
+    """Retrieves the current DEEPGRAM_API_KEY from .env."""
+    key = env_manager.get_value("DEEPGRAM_API_KEY")
+    return {"key": key or ""}
+
+@router.post("/api/save-deepgram-key")
+async def save_deepgram_key(request: SaveKeyRequest):
+    """Updates the DEEPGRAM_API_KEY in the .env file."""
+    try:
+        success = env_manager.update_key("DEEPGRAM_API_KEY", request.key)
+        if success:
+            return {"success": True, "message": "Deepgram API key saved successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update .env file")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving Deepgram key: {e}")
+
 @router.post("/api/verify-provider")
 async def verify_ai_provider(request: ProviderVerifyRequest):
     """
     Verifies a connection to the selected AI provider.
+    Tries all available apiKeys if the first one fails.
     """
     try:
         async with aiofiles.open("ai_providers.json", "rb") as f:
@@ -81,12 +145,23 @@ async def verify_ai_provider(request: ProviderVerifyRequest):
         if not provider_config:
             raise HTTPException(status_code=404, detail=f"Provider '{request.name}' not found.")
 
-        is_valid = await verify_provider_connection(
-            base_url=provider_config.get("baseURL"),
-            api_key=provider_config.get("apiKey"),
-            model_name=request.model
-        )
-        return {"success": is_valid}
+        # Get all available keys, with fallback to single apiKey
+        api_keys = provider_config.get("apiKeys", [provider_config.get("apiKey", "")])
+        if not api_keys:
+            api_keys = [provider_config.get("apiKey", "")]
+
+        # Try each key until one works
+        for i, key in enumerate(api_keys):
+            is_valid = await verify_provider_connection(
+                base_url=provider_config.get("baseURL"),
+                api_key=key,
+                model_name=request.model
+            )
+            if is_valid:
+                return {"success": True}
+            print(f"⚠️ Key {i+1}/{len(api_keys)} failed for {request.name}, trying next...")
+        
+        return {"success": False}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to verify provider: {e}")
@@ -95,6 +170,7 @@ async def verify_ai_provider(request: ProviderVerifyRequest):
 async def verify_vision_ai_provider(request: ProviderVerifyRequest):
     """
     Verifies a connection to the selected vision AI provider.
+    Tries all available apiKeys if the first one fails.
     """
     try:
         async with aiofiles.open("ai_providers.json", "rb") as f:
@@ -124,13 +200,24 @@ async def verify_vision_ai_provider(request: ProviderVerifyRequest):
         if not model_config:
             raise HTTPException(status_code=400, detail=f"Model '{request.model}' is not a vision model for '{request.name}'.")
 
-        is_valid = await verify_vision_provider_connection(
-            base_url=provider_config.get("baseURL"),
-            api_key=provider_config.get("apiKey"),
-            model_name=request.model,
-            request_params=model_config.get("requestParams")
-        )
-        return {"success": is_valid}
+        # Get all available keys, with fallback to single apiKey
+        api_keys = provider_config.get("apiKeys", [provider_config.get("apiKey", "")])
+        if not api_keys:
+            api_keys = [provider_config.get("apiKey", "")]
+
+        # Try each key until one works
+        for i, key in enumerate(api_keys):
+            is_valid = await verify_vision_provider_connection(
+                base_url=provider_config.get("baseURL"),
+                api_key=key,
+                model_name=request.model,
+                request_params=model_config.get("requestParams")
+            )
+            if is_valid:
+                return {"success": True}
+            print(f"⚠️ Vision key {i+1}/{len(api_keys)} failed for {request.name}, trying next...")
+        
+        return {"success": False}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to verify vision provider: {e}")

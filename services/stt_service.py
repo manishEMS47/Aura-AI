@@ -46,6 +46,9 @@ class DeepgramManager:
         self.is_connected = False
         self.stop_event = asyncio.Event()
         self.user_languages = user_languages or []
+        self._reconnect_attempts = 0
+        self._max_reconnect_attempts = 5
+        self._reconnect_base_delay = 1.0  # seconds
         
         # No buffering - process final results immediately for faster response
         
@@ -207,9 +210,34 @@ class DeepgramManager:
         
         try:
             await self.dg_connection.start(options)
+            self.is_connected = True
+            self._reconnect_attempts = 0  # Reset on successful connect
             print("✅ Deepgram connection started successfully")
         except Exception as e:
             print(f"❌ ERROR: Could not start Deepgram connection: {e}")
+
+    async def _reconnect(self):
+        """Attempt to reconnect to Deepgram with exponential backoff."""
+        if self.stop_event.is_set():
+            return
+        if self._reconnect_attempts >= self._max_reconnect_attempts:
+            print(f"❌ Deepgram: max reconnect attempts ({self._max_reconnect_attempts}) reached, giving up")
+            return
+
+        self._reconnect_attempts += 1
+        delay = self._reconnect_base_delay * (2 ** (self._reconnect_attempts - 1))
+        print(f"🔄 Deepgram reconnect attempt {self._reconnect_attempts}/{self._max_reconnect_attempts} in {delay:.1f}s...")
+        await asyncio.sleep(delay)
+
+        if self.stop_event.is_set():
+            return
+
+        try:
+            await self.start()
+            print(f"✅ Deepgram reconnected after {self._reconnect_attempts} attempt(s)")
+        except Exception as e:
+            print(f"❌ Deepgram reconnect failed: {e}")
+            asyncio.create_task(self._reconnect())
 
     async def on_open(self, *args, **kwargs):
         print("🔗 Deepgram connection opened")
@@ -292,12 +320,19 @@ class DeepgramManager:
     async def on_error(self, *args, **kwargs):
         if self.stop_event.is_set():
             return
-        error = kwargs['error']
+        error = kwargs.get('error', 'unknown')
         print(f"❌ Deepgram error: {error}")
+        self.is_connected = False
+        # Trigger auto-reconnect on error
+        asyncio.create_task(self._reconnect())
 
     async def on_close(self, *args, **kwargs):
         print("🔌 Deepgram connection closed")
         self.is_connected = False
+        # Auto-reconnect if we didn't intentionally close
+        if not self.stop_event.is_set():
+            print("⚠️ Unexpected Deepgram close, attempting reconnect...")
+            asyncio.create_task(self._reconnect())
 
     async def send_audio(self, audio_chunk, source='unknown'):
         """Sends an audio chunk to Deepgram."""

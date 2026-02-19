@@ -11,17 +11,23 @@ import {
 } from './audio_handler.js';
 import muteManager from './mute-manager.js';
 import { autofillForTesting } from './dev.js';
-import { loadConfig, isDev, devLog, devWarn, devError } from './config.js';
+import { loadConfig, isDev, devLog, devWarn, devError, applyConsoleGate } from './config.js';
 import liveInterviewUI from './live-interview.js';
 import hotkeyManager from './hotkeys.js';
 import presetManager from './preset-manager.js';
 import screenshotService from './screenshot-service.js';
+import { ConfigManager } from './config-manager.js';
 import { testStreamingMarkdown, testSampleMarkdown } from './streaming-markdown-demo.js';
 
 // Initialize managers
 const stateManager = new StateManager();
 const webSocketHandler = new WebSocketHandler(stateManager);
 const providerManager = new ProviderManager(stateManager, webSocketHandler);
+const configManager = new ConfigManager(stateManager);
+
+// Expose to window for inter-module integration
+window.providerManager = providerManager;
+window.configManager = configManager;
 
 // --- Dependency Injection ---
 // Wire the managers together to avoid race conditions and reliance on globals.
@@ -40,6 +46,44 @@ const proceedButton = document.getElementById('proceed-to-checks');
 const startButton = document.getElementById('start-interview-button');
 const backButton = document.getElementById('back-to-onboarding-btn');
 
+// --- Tab Management ---
+function setupTabs() {
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetId = btn.getAttribute('data-tab');
+
+            // Update buttons
+            tabBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Update panes
+            tabPanes.forEach(p => p.classList.remove('active'));
+            const targetPane = document.getElementById(targetId);
+            if (targetPane) targetPane.classList.add('active');
+
+            // Refresh advanced config if switching to that tab
+            if (targetId === 'advanced-config-tab') {
+                configManager.loadInitialData();
+            }
+        });
+    });
+
+    // Wire up the Fill Demo Data button
+    const fillDemoBtn = document.getElementById('fill-demo-btn');
+    if (fillDemoBtn) {
+        fillDemoBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            autofillForTesting();
+            fillDemoBtn.textContent = '✅ Filled!';
+            setTimeout(() => { fillDemoBtn.textContent = '⚡ Demo'; }, 1500);
+        });
+    }
+}
+
 
 // --- View Management ---
 function switchView(targetView) {
@@ -49,8 +93,8 @@ function switchView(targetView) {
 
 function handleOnboarding() {
     if (stateManager.handleOnboarding()) {
-    switchView('preflight');
-    runPreFlightChecks();
+        switchView('preflight');
+        runPreFlightChecks();
     }
 }
 
@@ -59,7 +103,7 @@ async function runPreFlightChecks() {
     // First, ensure we have microphone permissions as this is a prerequisite.
     const micPermissionCheck = document.getElementById('check-mic-permission');
     const micSelectionCheck = document.getElementById('check-mic-selection');
-    
+
     providerManager.webSocketHandler.updateCheckStatus(micPermissionCheck, 'pending', 'Requesting Microphone...');
     const micPermission = await setupMicrophone();
     if (micPermission) {
@@ -121,13 +165,13 @@ async function startInterview() {
 
 async function endInterview() {
     console.log('🔚 Ending interview and clearing state...');
-    
+
     // Stop all audio processing
     stopAudioProcessing();
-    
+
     // Send end interview signal to backend
     webSocketHandler.endInterview();
-    
+
     // Disable hotkeys
     hotkeyManager.setEnabled(false);
 
@@ -138,30 +182,30 @@ async function endInterview() {
 
     // Comprehensive state clearing
     stateManager.clearInterviewState();
-    
+
     // Reset preset manager if available
     if (window.presetManager) {
         presetManager.clearNotifications?.();
     }
-    
+
     // Switch back to onboarding
     switchView('onboarding');
-    
+
     console.log('✅ Interview ended and state cleared successfully');
 }
 
 async function resetInterview() {
     console.log('🔄 Resetting interview...');
-    
+
     // Send reset signal to backend
     webSocketHandler.sendMessage('reset_session', {});
-    
+
     // Clear conversation UI
     if (window.liveInterviewUI) {
         liveInterviewUI.clearConversation();
         liveInterviewUI.showActivity('Listening...');
     }
-    
+
     console.log('✅ Interview reset successfully');
 }
 
@@ -218,13 +262,13 @@ function setupEventListeners() {
     proceedButton?.addEventListener('click', handleOnboarding);
     startButton?.addEventListener('click', startInterview);
     backButton?.addEventListener('click', () => switchView('onboarding'));
-    
+
     // Provider change listeners
     const providerSelect = document.getElementById('ai-provider-select');
     const secondaryProviderSelect = document.getElementById('ai-secondary-provider-select');
     const visionProviderSelect = document.getElementById('vision-provider-select');
     const visionSecondaryProviderSelect = document.getElementById('vision-secondary-provider-select');
-    
+
     providerSelect?.addEventListener('change', providerManager.updateModelDropdown.bind(providerManager));
     secondaryProviderSelect?.addEventListener('change', providerManager.updateSecondaryModelDropdown.bind(providerManager));
     visionProviderSelect?.addEventListener('change', providerManager.updateVisionModelDropdown.bind(providerManager));
@@ -234,20 +278,22 @@ function setupEventListeners() {
 // Main initialization
 window.addEventListener('DOMContentLoaded', async () => {
     await loadConfig();
+    applyConsoleGate(); // Suppress console.log/debug/info when DEV_MODE is off
     await providerManager.loadAiProviders();
     liveInterviewUI.init();
     setupEventListeners();
     setupDeveloperShortcuts();
     setupPresetHotkeys();
+    setupTabs();
     hotkeyManager.setEnabled(false);
     switchView('onboarding');
 });
 
 // --- Developer Shortcuts ---
 function setupDeveloperShortcuts() {
-    
+
     devLog('🛠️ Developer shortcuts enabled');
-    
+
     // Console helper functions
     if (isDev) {
         console.log(`
@@ -278,7 +324,7 @@ Try: testSampleMarkdown()
 • Real-time code block rendering during streaming
         `);
     }
-    
+
     window.addEventListener('keydown', (e) => {
         if (e.ctrlKey && e.key === 'j') {
             e.preventDefault();
@@ -294,19 +340,19 @@ function setupPresetHotkeys() {
         // Only work during live interview and if not focusing on input fields
         if (!e.target.matches('input, textarea, select') && stateManager.isLiveInterviewActive()) {
             if (e.altKey && !e.ctrlKey && !e.shiftKey) {
-                switch(e.key.toLowerCase()) {
+                switch (e.key.toLowerCase()) {
                     case 'q':
                         e.preventDefault();
                         switchPreset('primary');
                         devLog('🔄 Hotkey: Switching to primary preset');
                         break;
-                    case 'w': 
+                    case 'w':
                         e.preventDefault();
                         switchPreset('secondary');
                         devLog('🔄 Hotkey: Switching to secondary preset');
                         break;
                     case 'e':
-                        e.preventDefault(); 
+                        e.preventDefault();
                         switchPreset('auto');
                         devLog('🔄 Hotkey: Auto-selecting best preset');
                         break;

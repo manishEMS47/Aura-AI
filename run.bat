@@ -61,13 +61,13 @@ echo.
 :: Upgrade pip and install/update dependencies
 echo [4/5] Installing/updating dependencies...
 echo    Upgrading pip...
-python -m pip install --upgrade pip --quiet
+python -m pip install --upgrade pip --quiet --timeout 60
 if errorlevel 1 (
     echo WARNING: Failed to upgrade pip, continuing anyway...
 )
 
 echo    Installing requirements from requirements.txt...
-pip install -r requirements.txt --quiet
+pip install -r requirements.txt --quiet --timeout 60
 if errorlevel 1 (
     echo ERROR: Failed to install dependencies!
     echo Please check requirements.txt and your internet connection

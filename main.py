@@ -12,10 +12,40 @@ import tempfile
 import time
 import signal
 import sys
+import socket
 import threading
+import shutil
 from pathlib import Path
+
+# --- Auto-create .env from .env.example if missing ---
+_env_path = Path(".env")
+_env_example_path = Path(".env.example")
+
+if not _env_path.exists() and _env_example_path.exists():
+    shutil.copy2(_env_example_path, _env_path)
+    print("📄 Created .env from .env.example — please fill in your API keys!")
+elif not _env_path.exists() and not _env_example_path.exists():
+    print("⚠️ No .env or .env.example found. The app may fail to start without a .env file.")
+
 from api import websocket, config_api
+from api.session_manager import session_manager
 from core.config import settings, print_config_debug
+
+
+def find_free_port(preferred: int = 8002) -> int:
+    """Check if the preferred port is available; if not, find a free one."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(('127.0.0.1', preferred))
+            return preferred
+        except OSError:
+            pass
+    # Preferred port is occupied — let the OS pick a free one
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('127.0.0.1', 0))
+        port = s.getsockname()[1]
+    print(f"⚠️ Port {preferred} is busy, using port {port} instead")
+    return port
 
 # --- Development Flag (now from .env) ---
 # DEV_MODE is now controlled via .env file - see core/config.py
@@ -238,10 +268,10 @@ async def read_index(request: Request):
 class UvicornServer:
     """Manages the Uvicorn server as an asyncio task"""
     
-    def __init__(self, app, host="127.0.0.1", port=8002):
+    def __init__(self, app, host="127.0.0.1", port=None):
         self.app = app
         self.host = host
-        self.port = port
+        self.port = port if port else find_free_port()
         self.server = None
         self.server_task = None
         
@@ -348,6 +378,9 @@ class AsyncioServiceThread:
             # Start the Uvicorn server
             await uvicorn_server.start()
             
+            # Start the session cleanup task
+            session_manager.start_cleanup_task()
+            
             # Start the global command monitor
             await command_monitor.start_monitoring()
             
@@ -384,7 +417,7 @@ def setup_webview_window():
     # Create the pywebview window, loading the FastAPI server
     window = webview.create_window(
         'Aura',
-        'http://127.0.0.1:8002',
+        f'http://127.0.0.1:{uvicorn_server.port}',
         width=1000,
         height=750,
         resizable=True

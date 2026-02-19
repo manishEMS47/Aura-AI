@@ -4,6 +4,7 @@
 # from being captured by screen recording or sharing software (e.g., Teams, Zoom, OBS).
 # This is the "stealth" feature of the Aura application.
 
+import os
 import ctypes
 import ctypes.wintypes as wintypes
 import webview
@@ -15,9 +16,11 @@ from threading import Thread
 from pynput import keyboard
 
 # --- Scroll Configuration ---
-# Change this value to adjust scroll speed (pixels per scroll action)
-# Examples: 100 = slow, 150 = medium, 200 = fast, 300 = very fast
-SCROLL_AMOUNT_PX = 200
+# Configurable via .env — controls Alt+Up/Down scroll behaviour
+# SCROLL_SPEED_PX: pixels per scroll tick (higher = faster). Default: 200
+# SCROLL_INTERVAL_MS: milliseconds between ticks while key is held. Default: 50
+SCROLL_AMOUNT_PX = int(os.environ.get("SCROLL_SPEED_PX", "200"))
+SCROLL_INTERVAL_MS = int(os.environ.get("SCROLL_INTERVAL_MS", "50"))
 
 # --- Win32 API Constants ---
 # These flags are used with the SetWindowDisplayAffinity function.
@@ -1105,8 +1108,8 @@ class WindowManager:
                 elif self.scrolling_down:
                     self.send_scroll_command("down")
                 
-                # Wait 50ms between scroll commands for smooth scrolling
-                time.sleep(0.05)
+                # Wait between scroll commands for smooth scrolling
+                time.sleep(SCROLL_INTERVAL_MS / 1000)
             except Exception as e:
                 print(f"❌ Error in continuous scroll loop: {e}")
                 break
